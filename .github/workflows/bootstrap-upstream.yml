@@ -44,8 +44,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/apply_web_port.py
+          python3 -m py_compile tools/apply_web_port.py tools/apply_web_runtime_fixes.py
           python3 tools/apply_web_port.py
+          python3 tools/apply_web_runtime_fixes.py
 
       - name: Commit imported and patched source
         shell: bash
