@@ -13,6 +13,7 @@ on:
       - tools/apply_web_port.py
       - tools/apply_web_runtime_fixes.py
       - tools/apply_yandex_port.py
+      - tools/apply_web_size_optimizations.py
       - tools/check_localization.py
       - .github/workflows/build-web.yml
   workflow_dispatch:
@@ -43,6 +44,12 @@ jobs:
           set -euo pipefail
           apt-get update
           apt-get install -y --no-install-recommends python3 zip unzip
+
+      - name: Apply Web size optimization profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/apply_web_size_optimizations.py | tee size-optimization.txt
 
       - name: Validate localization baseline
         shell: bash
@@ -119,10 +126,10 @@ jobs:
           grep -Fq '<script src="/sdk.js"></script>' build/web/index.html
           grep -Fq 'LoadingAPI' build/web/index.html
 
-          # Yandex Games: unpacked archive must not exceed 100 MiB.
+          # Yandex Games: unpacked archive must not exceed 100 MB.
           unpacked_bytes="$(du -sb build/web | cut -f1)"
           echo "Unpacked build: ${unpacked_bytes} bytes" | tee -a build-sizes.txt
-          test "$unpacked_bytes" -le 104857600
+          test "$unpacked_bytes" -le 100000000
 
           # Yandex Games: no spaces or Cyrillic characters in archive paths.
           bad_paths="$(find build/web -mindepth 1 -printf '%P\n' | grep -E ' |[А-Яа-яЁё]' || true)"
@@ -151,6 +158,7 @@ jobs:
             build/TanksOfFreedomII-Web-v1.zip
             build/web/
             build-sizes.txt
+            size-optimization.txt
             build-web.log
             build-web.status
             import.log
