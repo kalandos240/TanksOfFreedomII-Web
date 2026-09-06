@@ -52,6 +52,9 @@ jobs:
           python3 tools/apply_web_port.py
           python3 tools/apply_web_runtime_fixes.py
           python3 tools/apply_yandex_port.py
+
+          # Upstream currently ships complete English and Polish key sets.
+          # Russian becomes required here only after the full RU pass is complete.
           python3 tools/check_localization.py --required en pl
 
       - name: Commit imported and patched source
