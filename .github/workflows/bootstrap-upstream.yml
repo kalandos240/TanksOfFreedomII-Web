@@ -9,6 +9,7 @@ on:
       - tools/apply_web_runtime_fixes.py
       - tools/apply_web_touch_fixes.py
       - tools/apply_yandex_port.py
+      - tools/apply_ru_localization.py
       - tools/apply_web_size_optimizations.py
       - tools/package_yandex_web.py
   workflow_dispatch:
@@ -59,6 +60,7 @@ jobs:
             tools/apply_web_runtime_fixes.py \
             tools/apply_web_touch_fixes.py \
             tools/apply_yandex_port.py \
+            tools/apply_ru_localization.py \
             tools/apply_web_size_optimizations.py \
             tools/package_yandex_web.py \
             tools/check_localization.py
@@ -66,11 +68,12 @@ jobs:
           python3 tools/apply_web_runtime_fixes.py
           python3 tools/apply_web_touch_fixes.py
           python3 tools/apply_yandex_port.py
+          python3 tools/apply_ru_localization.py
           python3 tools/apply_web_size_optimizations.py
 
-          # Upstream currently ships complete English and Polish key sets.
-          # Intentional blank canonical strings are allowed by the checker.
-          # Russian becomes required here only after the full RU pass is complete.
+          # Campaign Russian overlays are being authored in stages. English and
+          # Polish remain release-complete baselines until the RU campaign pass
+          # is finished and the final three-locale gate is enabled.
           python3 tools/check_localization.py --required en pl
 
       - name: Commit imported and patched source
