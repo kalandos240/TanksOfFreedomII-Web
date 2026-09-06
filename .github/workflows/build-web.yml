@@ -72,7 +72,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 tools/check_localization.py --required en pl | tee localization-check.txt
+          python3 tools/check_localization.py \
+            --required-csv en pl ru \
+            --required-campaigns en pl \
+            | tee localization-check.txt
 
       - name: Install export templates
         shell: bash
