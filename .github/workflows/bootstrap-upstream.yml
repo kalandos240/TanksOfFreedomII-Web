@@ -71,10 +71,11 @@ jobs:
           python3 tools/apply_ru_localization.py
           python3 tools/apply_web_size_optimizations.py
 
-          # Campaign Russian overlays are being authored in stages. English and
-          # Polish remain release-complete baselines until the RU campaign pass
-          # is finished and the final three-locale gate is enabled.
-          python3 tools/check_localization.py --required en pl
+          # The entire core/common UI is already release-gated in all three
+          # languages. Campaign RU overlays are authored and promoted in stages.
+          python3 tools/check_localization.py \
+            --required-csv en pl ru \
+            --required-campaigns en pl
 
       - name: Commit imported and patched source
         shell: bash
