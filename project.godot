@@ -35,6 +35,7 @@ SimpleAudioLibrary="*res://scripts/services/audio.gd"
 MouseLayer="*res://scripts/services/mouse_layer.gd"
 SceneSwitcher="*res://scripts/services/scene_switcher.gd"
 MatchSetup="*res://scripts/services/match_setup.gd"
+RuTranslationLoader="*res://scripts/services/ru_translation_loader.gd"
 Settings="*res://scripts/services/settings.gd"
 YandexBridge="*res://scripts/services/yandex.gd"
 Campaign="*res://scripts/services/campaign.gd"
@@ -227,11 +228,11 @@ pointing/android/enable_pan_and_scale_gestures=true
 
 [internationalization]
 
-locale/translations=PackedStringArray("res://assets/translations/common.en.en.translation", "res://assets/translations/common.pl.pl.translation", "res://assets/translations/common.ru.ru.translation", "res://assets/translations/core.en.en.translation", "res://assets/translations/core.pl.pl.translation", "res://assets/translations/core.ru.ru.translation")
+locale/translations=PackedStringArray("res://assets/translations/common.en.en.translation", "res://assets/translations/common.pl.pl.translation", "res://assets/translations/core.en.en.translation", "res://assets/translations/core.pl.pl.translation")
 
 [locale]
 
-translations=PackedStringArray("res://assets/translations/core.en.en.translation", "res://assets/translations/core.pl.pl.translation", "res://assets/translations/core.ru.ru.translation", "res://assets/translations/common.en.en.translation", "res://assets/translations/common.pl.pl.translation", "res://assets/translations/common.ru.ru.translation")
+translations=PackedStringArray("res://assets/translations/core.en.en.translation", "res://assets/translations/core.pl.pl.translation", "res://assets/translations/common.en.en.translation", "res://assets/translations/common.pl.pl.translation")
 
 [network]
 
