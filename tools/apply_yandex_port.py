@@ -118,7 +118,7 @@ def patch_export_head() -> None:
     path = "export_presets.cfg"
     text = read(path)
 
-    head = r'''<script src="/sdk.js"></script>
+    head = '''<script src="/sdk.js"></script>
 <script>
 (function () {
   var state = window.tofYandex = {
