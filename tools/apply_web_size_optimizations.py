@@ -45,6 +45,7 @@ def optimize_obj_imports() -> None:
 def compact_map_json() -> None:
     roots = [ROOT / "assets" / "campaigns", ROOT / "assets" / "maps"]
     compacted = 0
+    skipped = 0
     before = 0
     after = 0
 
@@ -56,7 +57,13 @@ def compact_map_json() -> None:
             try:
                 data = json.loads(raw)
             except json.JSONDecodeError as exc:
-                raise RuntimeError(f"Invalid JSON in {path.relative_to(ROOT)}: {exc}") from exc
+                # A small number of upstream map files intentionally use a
+                # relaxed/editor JSON dialect. Preserve those byte-for-byte;
+                # changing their syntax here risks changing game behavior.
+                skipped += 1
+                print(f"Skipping non-strict JSON: {path.relative_to(ROOT)} ({exc})")
+                continue
+
             compact = json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "\n"
             before += len(raw.encode("utf-8"))
             after += len(compact.encode("utf-8"))
@@ -66,7 +73,7 @@ def compact_map_json() -> None:
 
     print(
         "Map JSON compacted: "
-        f"{compacted} files, {before} -> {after} bytes "
+        f"{compacted} files, skipped {skipped}, {before} -> {after} bytes "
         f"(saved {before - after} bytes)"
     )
 
