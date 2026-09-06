@@ -30,7 +30,12 @@ func _ready():
 
 func _input(event):
 	if event.is_action_pressed("ui_cancel"):
-		self.quit_button.grab_focus()
+		# Quit is hidden in the browser build. Never move keyboard/gamepad
+		# focus to an invisible control. Keep native behavior unchanged.
+		if self.quit_button.is_visible_in_tree() and not self.quit_button.disabled:
+			self.quit_button.grab_focus()
+		else:
+			self.settings_button.grab_focus()
 
 	if OS.is_debug_build():
 		if event.is_action_pressed("cheat_capture"):

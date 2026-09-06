@@ -36,10 +36,11 @@ option_key = "render_scale"
 help_tip = "TR_RENDER_SCALE_DESC"
 step = 5
 min_value = 20
-max_value = 100
+max_value = 90
 
 [node name="shadows" parent="VBoxContainer" instance=ExtResource("1")]
 layout_mode = 2
+unavailable = true
 option_name = "TR_SHADOWS"
 option_key = "shadows"
 help_tip = "TR_SHADOWS_DESC"
@@ -52,18 +53,21 @@ help_tip = "TR_DECO_DESC"
 
 [node name="dec_shadows" parent="VBoxContainer" instance=ExtResource("1")]
 layout_mode = 2
+unavailable = true
 option_name = "TR_DECO_SHAD"
 option_key = "dec_shadows"
 help_tip = "TR_DECO_SHAD_DESC"
 
 [node name="tilt_shift" parent="VBoxContainer" instance=ExtResource("1")]
 layout_mode = 2
+unavailable = true
 option_name = "TR_TILT_SHIFT"
 option_key = "tilt_shift_enabled"
 help_tip = "TR_TILT_SHIFT_DESC"
 
 [node name="msaa" parent="VBoxContainer" instance=ExtResource("2")]
 layout_mode = 2
+unavailable = true
 option_name = "TR_MSAA"
 option_key = "msaa"
 help_tip = "TR_MSAA_DESC"
@@ -71,12 +75,14 @@ available_values = [0.0, 2.0, 4.0, 8.0]
 
 [node name="fxaa" parent="VBoxContainer" instance=ExtResource("1")]
 layout_mode = 2
+unavailable = true
 option_name = "TR_FXAA"
 option_key = "fxaa"
 help_tip = "TR_FXAA_DESC"
 
 [node name="vsync" parent="VBoxContainer" instance=ExtResource("1")]
 layout_mode = 2
+unavailable = true
 option_name = "TR_VSYNC"
 option_key = "vsync"
 help_tip = "TR_VSYNC_DESC"
@@ -86,11 +92,11 @@ layout_mode = 2
 option_name = "TR_FPS_L"
 option_key = "fps"
 help_tip = "TR_FPS_L_DESC"
-available_values = [30.0, 60.0, 90.0, 120.0, 144.0]
+available_values = [30.0, 60.0]
 
 [node name="ips" parent="VBoxContainer" instance=ExtResource("2")]
 layout_mode = 2
 option_name = "TR_IPS_L"
 option_key = "ips"
 help_tip = "TR_IPS_L_DESC"
-available_values = [30.0, 60.0, 90.0, 120.0, 144.0]
+available_values = [30.0, 60.0]

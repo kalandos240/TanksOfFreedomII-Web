@@ -57,6 +57,9 @@ func _ready():
 	self._apply_web_profile()
 
 func _apply_web_profile():
+	if not OS.has_feature("web"):
+		return
+
 	# Portal build: deterministic browser-safe defaults.
 	# Apply after loading saved settings so unsupported values cannot return.
 	self.settings["shadows"] = false
@@ -68,6 +71,7 @@ func _apply_web_profile():
 	self.settings["ips"] = 60.0
 	self.settings["edge_pan"] = false
 	self.settings["tilt_shift_enabled"] = false
+	self.settings["render_scale"] = min(float(self.settings["render_scale"]), 90.0)
 	self.settings["online_domain"] = ""
 	self.settings["online_port"] = 0
 	self.settings["relay_domain"] = ""
@@ -78,11 +82,26 @@ func _apply_web_profile():
 func save_settings_to_file():
 	self.filesystem.write_data_as_json_to_file(self.SETTINGS_FILE_PATH, self.settings)
 
+func _coerce_web_option(key, value):
+	if not OS.has_feature("web"):
+		return value
+
+	match key:
+		"shadows", "dec_shadows", "fxaa", "vsync", "tilt_shift_enabled", "edge_pan":
+			return false
+		"msaa":
+			return 0.0
+		"fps", "ips":
+			return min(float(value), 60.0)
+		"render_scale":
+			return min(float(value), 90.0)
+	return value
+
 func load_settings_from_file():
 	var loaded_settings = self.filesystem.read_json_from_file(self.SETTINGS_FILE_PATH)
 
 	for settings_key in loaded_settings:
-		self.settings[settings_key] = loaded_settings[settings_key]
+		self.settings[settings_key] = self._coerce_web_option(settings_key, loaded_settings[settings_key])
 		self._apply_option(settings_key)
 
 func get_option(key):
@@ -91,11 +110,8 @@ func get_option(key):
 	return null
 
 func set_option(key, value):
-	# Keep browser-incompatible values from being re-enabled at runtime.
-	if key == "tilt_shift_enabled" or key == "edge_pan":
-		value = false
-	elif key == "fps" or key == "ips":
-		value = min(float(value), 60.0)
+	# Apply the same browser policy to UI changes and programmatic writes.
+	value = self._coerce_web_option(key, value)
 	self.settings[key] = value
 	self.save_settings_to_file()
 
