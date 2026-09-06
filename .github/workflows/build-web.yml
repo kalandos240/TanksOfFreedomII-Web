@@ -11,6 +11,7 @@ on:
       - assets/**
       - localization/**
       - tools/apply_web_port.py
+      - tools/apply_web_runtime_fixes.py
       - .github/workflows/build-web.yml
   workflow_dispatch:
 
@@ -90,7 +91,7 @@ jobs:
           tail -n 180 build-web.log || true
           test "$status" -eq 0
 
-      - name: Verify Web export
+      - name: Verify Web export and Yandex archive rules
         shell: bash
         run: |
           set -euo pipefail
@@ -99,14 +100,30 @@ jobs:
           find build/web -maxdepth 1 -type f -name '*.wasm' -size +0c | grep -q .
           find build/web -maxdepth 1 -type f -name '*.pck' -size +0c | grep -q .
 
+          # Yandex Games: unpacked archive must not exceed 100 MiB.
+          unpacked_bytes="$(du -sb build/web | cut -f1)"
+          echo "Unpacked build: ${unpacked_bytes} bytes" | tee -a build-sizes.txt
+          test "$unpacked_bytes" -le 104857600
+
+          # Yandex Games: no spaces or Cyrillic characters in archive paths.
+          bad_paths="$(find build/web -mindepth 1 -printf '%P\n' | grep -E ' |[А-Яа-яЁё]' || true)"
+          if [ -n "$bad_paths" ]; then
+            echo "Invalid Yandex archive paths:"
+            printf '%s\n' "$bad_paths"
+            exit 1
+          fi
+
       - name: Create portal ZIP
         shell: bash
         run: |
           set -euo pipefail
           apt-get update
-          apt-get install -y zip
+          apt-get install -y zip unzip
           (cd build/web && zip -9 -r ../TanksOfFreedomII-Web-v1.zip .)
           ls -lh build/TanksOfFreedomII-Web-v1.zip
+
+          # index.html must be at the archive root.
+          unzip -Z1 build/TanksOfFreedomII-Web-v1.zip | grep -qx 'index.html'
 
       - name: Upload build and diagnostics
         if: always()
