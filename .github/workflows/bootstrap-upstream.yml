@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - .github/workflows/bootstrap-upstream.yml
+      - tools/apply_web_port.py
+      - tools/apply_web_runtime_fixes.py
+      - tools/apply_yandex_port.py
+      - tools/apply_web_size_optimizations.py
   workflow_dispatch:
 
 permissions:
