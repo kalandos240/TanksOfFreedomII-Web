@@ -65,6 +65,36 @@ def patch_project_translation_resources() -> None:
     write(path, text)
 
 
+def write_ru_translation_importers() -> None:
+    # The upstream English/Polish CSV files ship with Godot .import metadata and
+    # checked-in generated Translation resources. The Web-port Russian CSV files
+    # are authored separately, so recreate equivalent importer metadata on every
+    # deterministic bootstrap/build. A clean Godot import can then generate the
+    # two binary *.translation resources before the validation pass.
+    template = '''[remap]
+
+importer="csv_translation"
+type="Translation"
+
+[deps]
+
+files=["res://assets/translations/{stem}.ru.translation"]
+
+source_file="res://assets/translations/{stem}.csv"
+dest_files=["res://assets/translations/{stem}.ru.translation"]
+
+[params]
+
+compress=true
+delimiter=0
+'''
+    for stem in ("common.ru", "core.ru"):
+        write(
+            f"assets/translations/{stem}.csv.import",
+            template.format(stem=stem),
+        )
+
+
 def patch_language_selector_values() -> None:
     path = "scenes/ui/menu/settings/settings_general.tscn"
     text = read(path)
@@ -209,6 +239,7 @@ def patch_campaign_ru_overlay_loader() -> None:
 
 def main() -> None:
     patch_project_translation_resources()
+    write_ru_translation_importers()
     patch_language_selector_values()
     patch_language_selector_labels()
     patch_settings_first_run_marker()
