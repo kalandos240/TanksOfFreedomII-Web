@@ -1,0 +1,182 @@
+name: Browser Smoke Test
+
+on:
+  workflow_run:
+    workflows: ["Build Web Portal"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: tanks-of-freedom-ii-browser-smoke-${{ github.event.workflow_run.id }}
+  cancel-in-progress: true
+
+jobs:
+  browser-smoke:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Download Web build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: TanksOfFreedomII-Web-v1-${{ github.event.workflow_run.run_number }}
+          path: artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Locate exported Web build
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s artifact/build/web/index.html
+          test -s artifact/build/web/index.js
+          test -s artifact/build/web/index.wasmz
+          test -s artifact/build/web/index.pckz
+          find artifact/build/web -maxdepth 1 -type f -printf '%f\t%s bytes\n' | sort
+
+      - name: Install local Yandex SDK stub
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > artifact/build/web/sdk.js <<'JS'
+          (function () {
+            const html = document.documentElement;
+            const handlers = Object.create(null);
+
+            function mark(name) {
+              html.setAttribute(name, "1");
+            }
+
+            window.YaGames = {
+              init: function () {
+                mark("data-tof-sdk-init");
+                return Promise.resolve({
+                  environment: { i18n: { lang: "ru" } },
+                  features: {
+                    LoadingAPI: {
+                      ready: function () {
+                        mark("data-tof-ready");
+                      }
+                    }
+                  },
+                  on: function (name, callback) {
+                    handlers[name] = callback;
+                    html.setAttribute("data-tof-subscribed-" + name.replace(/_/g, "-"), "1");
+
+                    if (name === "game_api_pause") {
+                      setTimeout(function () {
+                        mark("data-tof-pause-fired");
+                        callback();
+                      }, 5000);
+                    }
+                    if (name === "game_api_resume") {
+                      setTimeout(function () {
+                        mark("data-tof-resume-fired");
+                        callback();
+                      }, 8000);
+                    }
+                  }
+                });
+              }
+            };
+          })();
+          JS
+          node --check artifact/build/web/sdk.js
+
+      - name: Start local Web server
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd artifact/build/web
+          python3 -m http.server 8765 --bind 127.0.0.1 > "$GITHUB_WORKSPACE/http-server.log" 2>&1 &
+          echo $! > "$GITHUB_WORKSPACE/http-server.pid"
+
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/index.html >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "Local Web server did not become ready."
+          exit 1
+
+      - name: Run Godot Web build in headless Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          chrome="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$chrome" ]; then
+            echo "No Chromium-based browser found on the GitHub runner."
+            exit 1
+          fi
+          echo "Browser: $chrome"
+          "$chrome" --version | tee browser-version.txt
+
+          set +e
+          timeout 120s "$chrome" \
+            --headless=new \
+            --no-sandbox \
+            --disable-dev-shm-usage \
+            --enable-webgl \
+            --ignore-gpu-blocklist \
+            --use-angle=swiftshader \
+            --virtual-time-budget=70000 \
+            --dump-dom \
+            http://127.0.0.1:8765/index.html \
+            > smoke-dom.html 2> smoke-chrome.log
+          status=$?
+          set -e
+
+          echo "Chrome exit code: $status"
+          tail -n 160 smoke-chrome.log || true
+          test "$status" -eq 0
+
+      - name: Verify game boot and Yandex lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          grep -Fq 'data-tof-sdk-init="1"' smoke-dom.html
+          grep -Fq 'data-tof-subscribed-game-api-pause="1"' smoke-dom.html
+          grep -Fq 'data-tof-subscribed-game-api-resume="1"' smoke-dom.html
+          grep -Fq 'data-tof-pause-fired="1"' smoke-dom.html
+          grep -Fq 'data-tof-resume-fired="1"' smoke-dom.html
+          grep -Fq 'data-tof-ready="1"' smoke-dom.html
+
+          if grep -Eqi 'RuntimeError|CompileError|WebAssembly.*error|Out of memory|ERR_FILE_NOT_FOUND' smoke-chrome.log; then
+            echo "Browser log contains a hard Web runtime error."
+            grep -Ein 'RuntimeError|CompileError|WebAssembly.*error|Out of memory|ERR_FILE_NOT_FOUND' smoke-chrome.log || true
+            exit 1
+          fi
+
+          echo "Browser smoke test reached LoadingAPI.ready after pause/resume lifecycle events."
+
+      - name: Stop local Web server
+        if: always()
+        shell: bash
+        run: |
+          if [ -f http-server.pid ]; then
+            kill "$(cat http-server.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-smoke-${{ github.event.workflow_run.run_number }}
+          path: |
+            smoke-dom.html
+            smoke-chrome.log
+            browser-version.txt
+            http-server.log
+          if-no-files-found: warn
+          retention-days: 14
