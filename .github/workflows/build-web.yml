@@ -4,8 +4,19 @@ on:
   push:
     branches: [main]
     paths:
+      - project.godot
+      - export_presets.cfg
+      - scripts/**
+      - scenes/**
+      - assets/**
+      - localization/**
+      - tools/apply_web_port.py
       - .github/workflows/build-web.yml
   workflow_dispatch:
+
+concurrency:
+  group: tanks-of-freedom-ii-web-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -31,20 +42,53 @@ jobs:
           if [ -d /root/.local/share/godot/export_templates/4.4.stable ]; then
             mv /root/.local/share/godot/export_templates/4.4.stable ~/.local/share/godot/export_templates/4.4.stable
           fi
-          godot --version
+          godot --version | tee godot-version.txt
 
       - name: Import project
         shell: bash
         run: |
+          set -o pipefail
+          set +e
+          godot --headless --editor --path . --quit 2>&1 | tee import.log
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "$status" > import.status
+          exit 0
+
+      - name: Report import diagnostics
+        shell: bash
+        run: |
           set -euo pipefail
-          godot --headless --editor --path . --quit
+          status="$(cat import.status)"
+          echo "Godot project import exit code: $status"
+          grep -Ein 'ERROR|SCRIPT ERROR|Parse Error|failed|cannot|invalid|unsupported' import.log | tail -n 120 || true
+          echo "=== import log tail ==="
+          tail -n 120 import.log || true
+          test "$status" -eq 0
 
       - name: Export Web Portal
         shell: bash
         run: |
-          set -euo pipefail
+          set -o pipefail
           mkdir -p build/web
+          set +e
           godot --headless --verbose --path . --export-release "Web Portal" build/web/index.html 2>&1 | tee build-web.log
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "$status" > build-web.status
+          exit 0
+
+      - name: Report export diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(cat build-web.status)"
+          echo "Godot Web export exit code: $status"
+          echo "=== key diagnostics ==="
+          grep -Ein 'ERROR|SCRIPT ERROR|Parse Error|failed|cannot|invalid|unsupported|WARNING' build-web.log | tail -n 180 || true
+          echo "=== export log tail ==="
+          tail -n 180 build-web.log || true
+          test "$status" -eq 0
 
       - name: Verify Web export
         shell: bash
@@ -64,13 +108,19 @@ jobs:
           (cd build/web && zip -9 -r ../TanksOfFreedomII-Web-v1.zip .)
           ls -lh build/TanksOfFreedomII-Web-v1.zip
 
-      - name: Upload build artifact
+      - name: Upload build and diagnostics
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TanksOfFreedomII-Web-v1
+          name: TanksOfFreedomII-Web-v1-${{ github.run_number }}
           path: |
             build/TanksOfFreedomII-Web-v1.zip
+            build/web/
             build-sizes.txt
             build-web.log
-          if-no-files-found: error
+            build-web.status
+            import.log
+            import.status
+            godot-version.txt
+          if-no-files-found: warn
           retention-days: 14
