@@ -87,6 +87,13 @@ var mouse_click_position = null
 var camera_pan = Vector2(0, 0)
 var _last_used_blur_magnitude = 0
 
+# Native Web/mobile touch camera state. Mouse emulation remains enabled for
+# UI/tile taps, while camera.gd ignores those emulated mouse events to avoid
+# applying the same drag twice.
+var _touch_points: Dictionary = {}
+var _touch_pinch_distance := 0.0
+@export var touch_zoom_sensitivity := 0.05
+
 @onready var settings = $"/root/Settings"
 
 func _ready():
@@ -136,7 +143,19 @@ func _input(event):
 	if event.is_action_pressed("mouse_zoom_out"):
 		self._mouse_zoom_out()
 
+	if event is InputEventScreenTouch:
+		self._handle_screen_touch(event)
+		return
+	if event is InputEventScreenDrag:
+		self._handle_screen_drag(event)
+		return
+
 	if self.camera_in_transit or self.ai_operated or self.script_operated:
+		return
+
+	# Touch-to-mouse emulation is still useful for buttons and tile taps, but the
+	# camera handles native touch directly and must not process the emulated copy.
+	if event.device == InputEvent.DEVICE_ID_EMULATION:
 		return
 
 	if event is InputEventMouseButton and event.button_index in [MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_LEFT, MOUSE_BUTTON_MIDDLE]:
@@ -158,6 +177,46 @@ func _input(event):
 	elif event is InputEventMagnifyGesture:
 		var zoom_steps = int((event.factor - 1) * 100)
 		self._mouse_zoom(self.mouse_zoom_step * zoom_steps)
+
+func _handle_screen_touch(event: InputEventScreenTouch) -> void:
+	if event.pressed:
+		self._touch_points[event.index] = event.position
+	else:
+		self._touch_points.erase(event.index)
+
+	if self._touch_points.size() >= 2:
+		self._touch_pinch_distance = self._get_touch_distance()
+	else:
+		self._touch_pinch_distance = 0.0
+
+func _handle_screen_drag(event: InputEventScreenDrag) -> void:
+	self._touch_points[event.index] = event.position
+
+	# Keep finger state current during scripted/AI camera movement, but do not
+	# allow the player to fight an active camera transition.
+	if self.camera_in_transit or self.ai_operated or self.script_operated:
+		if self._touch_points.size() >= 2:
+			self._touch_pinch_distance = self._get_touch_distance()
+		else:
+			self._touch_pinch_distance = 0.0
+		return
+
+	if self._touch_points.size() >= 2:
+		var distance = self._get_touch_distance()
+		if self._touch_pinch_distance > 0.0:
+			var distance_delta = distance - self._touch_pinch_distance
+			self._mouse_zoom(-distance_delta * self.touch_zoom_sensitivity)
+		self._touch_pinch_distance = distance
+		return
+
+	self._touch_pinch_distance = 0.0
+	self._mouse_shift_camera(event.relative)
+
+func _get_touch_distance() -> float:
+	var ids = self._touch_points.keys()
+	if ids.size() < 2:
+		return 0.0
+	return self._touch_points[ids[0]].distance_to(self._touch_points[ids[1]])
 
 func _process(delta):
 	if self.paused:
