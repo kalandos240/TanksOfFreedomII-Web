@@ -99,13 +99,13 @@ jobs:
         run: |
           set -o pipefail
           set +e
-          godot --headless --editor --path . --quit 2>&1 | tee import-warmup.log
+          # --import waits for the editor resource scan/import queue to finish.
+          # Using --editor --quit here aborts that queue on a clean checkout.
+          godot --headless --path . --import 2>&1 | tee import-warmup.log
           status=${PIPESTATUS[0]}
           set -e
           echo "$status" > import-warmup.status
 
-          # The first pass builds imported resources, including the RU CSV
-          # translations added by the Web port.
           echo "Godot warm-up import exit code: $status"
           tail -n 80 import-warmup.log || true
           test "$status" -eq 0
@@ -117,7 +117,7 @@ jobs:
         run: |
           set -o pipefail
           set +e
-          godot --headless --editor --path . --quit 2>&1 | tee import.log
+          godot --headless --path . --import 2>&1 | tee import.log
           status=${PIPESTATUS[0]}
           set -e
           echo "$status" > import.status
@@ -129,9 +129,8 @@ jobs:
 
           test "$status" -eq 0
 
-          # Godot 4.4 headless editor has a known shutdown bookkeeping error in
-          # ProgressDialog. Ignore only those exact editor-internal messages;
-          # resource, parse and script errors must still fail the Web build.
+          # Keep a narrow allowance for Godot 4.4's editor-internal
+          # ProgressDialog bookkeeping only; project errors remain fatal.
           unexpected_errors="$(
             grep -E '^ERROR:|SCRIPT ERROR:|Parse Error:' import.log \
               | grep -Ev 'progress dialog \(task\)|!tasks\.has\(p_task\)' \
