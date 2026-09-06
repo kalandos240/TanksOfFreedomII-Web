@@ -46,11 +46,20 @@ const SUPPORTED_AUTO_LOCALES := ["en", "pl"]
 var sdk_initialized := false
 var platform_language := ""
 var game_ready_sent := false
+var _platform_paused := false
+var _tree_was_paused := false
+var _master_bus_was_muted := false
+var _music_was_playing := false
 
 
 func _ready() -> void:
 \tif not OS.has_feature("web"):
 \t\treturn
+
+\t# Yandex pause/resume must still be observed while the rest of the SceneTree
+\t# is paused by the platform.
+\tself.process_mode = Node.PROCESS_MODE_ALWAYS
+\tself.set_process(false)
 \tself.call_deferred("_wait_for_sdk")
 
 
@@ -65,9 +74,65 @@ func _wait_for_sdk() -> void:
 \t\t\tself.sdk_initialized = true
 \t\t\tself.platform_language = str(JavaScriptBridge.eval("(window.tofYandex && window.tofYandex.lang) || ''"))
 \t\t\tself._apply_platform_language()
+\t\t\tself.set_process(true)
+\t\t\tself._sync_platform_pause_state()
 \t\t\treturn
 
 \t\tawait self.get_tree().process_frame
+
+
+func _process(_delta: float) -> void:
+\tself._sync_platform_pause_state()
+
+
+func _sync_platform_pause_state() -> void:
+\tif not self.sdk_initialized:
+\t\treturn
+
+\tvar platform_paused = bool(JavaScriptBridge.eval("Boolean(window.tofYandex && window.tofYandex.platformPaused)"))
+\tif platform_paused == self._platform_paused:
+\t\treturn
+
+\tself._platform_paused = platform_paused
+\tif platform_paused:
+\t\tself._pause_from_platform()
+\telse:
+\t\tself._resume_from_platform()
+
+
+func _pause_from_platform() -> void:
+\tself._tree_was_paused = self.get_tree().paused
+
+\tvar master_bus = AudioServer.get_bus_index("Master")
+\tif master_bus >= 0:
+\t\tself._master_bus_was_muted = AudioServer.is_bus_mute(master_bus)
+\t\tAudioServer.set_bus_mute(master_bus, true)
+
+\tvar audio = self.get_node_or_null("/root/SimpleAudioLibrary")
+\tself._music_was_playing = false
+\tif audio != null:
+\t\tif audio.current_track != null:
+\t\t\tself._music_was_playing = audio.current_track.is_playing() and not audio.current_track.stream_paused
+\t\taudio.pause()
+\t\tfor sample in audio.samples.values():
+\t\t\tsample.stop()
+
+\tif not self._tree_was_paused:
+\t\tself.get_tree().paused = true
+
+
+func _resume_from_platform() -> void:
+\tif not self._tree_was_paused:
+\t\tself.get_tree().paused = false
+
+\tvar audio = self.get_node_or_null("/root/SimpleAudioLibrary")
+\tif audio != null and self._music_was_playing and bool(Settings.get_option("music")):
+\t\taudio.unpause()
+\tself._music_was_playing = false
+
+\tvar master_bus = AudioServer.get_bus_index("Master")
+\tif master_bus >= 0:
+\t\tAudioServer.set_bus_mute(master_bus, self._master_bus_was_muted)
 
 
 func _apply_platform_language() -> void:
@@ -126,7 +191,8 @@ def patch_export_head() -> None:
     initialized: false,
     failed: false,
     lang: "",
-    gameReadySent: false
+    gameReadySent: false,
+    platformPaused: false
   };
 
   state.markReady = function () {
@@ -148,6 +214,16 @@ def patch_export_head() -> None:
     state.sdk = ysdk;
     var i18n = ysdk.environment && ysdk.environment.i18n;
     state.lang = (i18n && i18n.lang) || "";
+
+    if (typeof ysdk.on === "function") {
+      ysdk.on("game_api_pause", function () {
+        state.platformPaused = true;
+      });
+      ysdk.on("game_api_resume", function () {
+        state.platformPaused = false;
+      });
+    }
+
     state.initialized = true;
   }).catch(function () {
     state.failed = true;
