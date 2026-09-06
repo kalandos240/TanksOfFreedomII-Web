@@ -12,6 +12,8 @@ on:
       - localization/**
       - tools/apply_web_port.py
       - tools/apply_web_runtime_fixes.py
+      - tools/apply_yandex_port.py
+      - tools/check_localization.py
       - .github/workflows/build-web.yml
   workflow_dispatch:
 
@@ -34,6 +36,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+
+      - name: Validate localization baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/check_localization.py --required en pl | tee localization-check.txt
 
       - name: Install export templates
         shell: bash
@@ -100,6 +108,10 @@ jobs:
           find build/web -maxdepth 1 -type f -name '*.wasm' -size +0c | grep -q .
           find build/web -maxdepth 1 -type f -name '*.pck' -size +0c | grep -q .
 
+          # Yandex SDK must be embedded through the exported HTML head.
+          grep -Fq '<script src="/sdk.js"></script>' build/web/index.html
+          grep -Fq 'LoadingAPI' build/web/index.html
+
           # Yandex Games: unpacked archive must not exceed 100 MiB.
           unpacked_bytes="$(du -sb build/web | cut -f1)"
           echo "Unpacked build: ${unpacked_bytes} bytes" | tee -a build-sizes.txt
@@ -138,6 +150,7 @@ jobs:
             build-web.status
             import.log
             import.status
+            localization-check.txt
             godot-version.txt
           if-no-files-found: warn
           retention-days: 14
