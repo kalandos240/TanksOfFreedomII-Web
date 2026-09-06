@@ -19,7 +19,7 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 12
 
     steps:
       - name: Download Web build artifact
@@ -90,6 +90,211 @@ jobs:
           JS
           node --check artifact/build/web/sdk.js
 
+      - name: Prepare browser probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y xvfb
+          fi
+          python3 -m pip install --disable-pip-version-check --quiet websocket-client
+
+          cat > browser_probe.py <<'PY'
+          import json
+          import sys
+          import time
+          import urllib.request
+
+          import websocket
+
+          CDP_URL = "http://127.0.0.1:9222/json"
+          PAGE_URL_FRAGMENT = "127.0.0.1:8765/index.html"
+          EVENTS_PATH = "smoke-cdp-events.jsonl"
+          STATE_PATH = "smoke-state.json"
+
+          events = []
+          next_id = 1
+
+
+          def save_event(message):
+              method = message.get("method", "")
+              if method in {
+                  "Runtime.exceptionThrown",
+                  "Runtime.consoleAPICalled",
+                  "Log.entryAdded",
+              }:
+                  events.append(message)
+                  with open(EVENTS_PATH, "a", encoding="utf-8") as handle:
+                      handle.write(json.dumps(message, ensure_ascii=False) + "\n")
+
+
+          deadline = time.time() + 45
+          page = None
+          while time.time() < deadline:
+              try:
+                  with urllib.request.urlopen(CDP_URL, timeout=1) as response:
+                      pages = json.load(response)
+                  page = next(
+                      (
+                          item
+                          for item in pages
+                          if item.get("type") == "page"
+                          and PAGE_URL_FRAGMENT in item.get("url", "")
+                      ),
+                      None,
+                  )
+                  if page is not None:
+                      break
+              except Exception:
+                  pass
+              time.sleep(0.5)
+
+          if page is None:
+              raise SystemExit("Chrome DevTools page did not become available")
+
+          ws = websocket.create_connection(
+              page["webSocketDebuggerUrl"],
+              timeout=2,
+          )
+
+
+          def command(method, params=None):
+              global next_id
+              request_id = next_id
+              next_id += 1
+              ws.send(
+                  json.dumps(
+                      {
+                          "id": request_id,
+                          "method": method,
+                          "params": params or {},
+                      }
+                  )
+              )
+              response_deadline = time.time() + 10
+              while time.time() < response_deadline:
+                  try:
+                      message = json.loads(ws.recv())
+                  except websocket.WebSocketTimeoutException:
+                      continue
+                  save_event(message)
+                  if message.get("id") == request_id:
+                      return message
+              raise TimeoutError(method)
+
+
+          command("Runtime.enable")
+          command("Log.enable")
+
+          expression = r'''(() => {
+            const html = document.documentElement;
+            let webgl2 = false;
+            try {
+              webgl2 = !!document.createElement("canvas").getContext("webgl2");
+            } catch (_) {}
+            const state = window.tofYandex || null;
+            return {
+              sdkInit: html.getAttribute("data-tof-sdk-init"),
+              pauseSubscribed: html.getAttribute("data-tof-subscribed-game-api-pause"),
+              resumeSubscribed: html.getAttribute("data-tof-subscribed-game-api-resume"),
+              pauseFired: html.getAttribute("data-tof-pause-fired"),
+              resumeFired: html.getAttribute("data-tof-resume-fired"),
+              ready: html.getAttribute("data-tof-ready"),
+              webgl2,
+              yandex: state ? {
+                initialized: !!state.initialized,
+                failed: !!state.failed,
+                lang: state.lang || "",
+                gameReadySent: !!state.gameReadySent,
+                platformPaused: !!state.platformPaused
+              } : null,
+              title: document.title
+            };
+          })()'''
+
+          state = None
+          deadline = time.time() + 100
+          while time.time() < deadline:
+              result = command(
+                  "Runtime.evaluate",
+                  {
+                      "expression": expression,
+                      "returnByValue": True,
+                      "awaitPromise": True,
+                  },
+              )
+              state = (
+                  result.get("result", {})
+                  .get("result", {})
+                  .get("value")
+              )
+              if state is not None:
+                  with open(STATE_PATH, "w", encoding="utf-8") as handle:
+                      json.dump(state, handle, ensure_ascii=False, indent=2)
+                  print(json.dumps(state, ensure_ascii=False, sort_keys=True), flush=True)
+
+                  if (
+                      state.get("ready") == "1"
+                      and state.get("pauseFired") == "1"
+                      and state.get("resumeFired") == "1"
+                  ):
+                      break
+              time.sleep(1)
+
+          ws.close()
+
+          if not state:
+              raise SystemExit("No browser state was returned")
+
+          required = {
+              "sdkInit": "1",
+              "pauseSubscribed": "1",
+              "resumeSubscribed": "1",
+              "pauseFired": "1",
+              "resumeFired": "1",
+              "ready": "1",
+              "webgl2": True,
+          }
+          failures = {
+              key: (state.get(key), expected)
+              for key, expected in required.items()
+              if state.get(key) != expected
+          }
+          yandex = state.get("yandex") or {}
+          if yandex.get("initialized") is not True:
+              failures["yandex.initialized"] = (yandex.get("initialized"), True)
+          if yandex.get("failed") is not False:
+              failures["yandex.failed"] = (yandex.get("failed"), False)
+          if yandex.get("lang") != "ru":
+              failures["yandex.lang"] = (yandex.get("lang"), "ru")
+          if yandex.get("gameReadySent") is not True:
+              failures["yandex.gameReadySent"] = (yandex.get("gameReadySent"), True)
+          if yandex.get("platformPaused") is not False:
+              failures["yandex.platformPaused"] = (yandex.get("platformPaused"), False)
+
+          hard_events = []
+          for event in events:
+              method = event.get("method")
+              params = event.get("params", {})
+              if method == "Runtime.exceptionThrown":
+                  hard_events.append(event)
+              elif method == "Log.entryAdded":
+                  level = (params.get("entry") or {}).get("level")
+                  if level == "error":
+                      hard_events.append(event)
+
+          if hard_events:
+              failures["browserErrors"] = (len(hard_events), 0)
+
+          if failures:
+              print("Browser smoke failures:", file=sys.stderr)
+              print(json.dumps(failures, ensure_ascii=False, indent=2), file=sys.stderr)
+              raise SystemExit(1)
+
+          print("Browser smoke reached LoadingAPI.ready after Yandex pause/resume events.")
+          PY
+
       - name: Start local Web server
         shell: bash
         run: |
@@ -108,7 +313,7 @@ jobs:
           echo "Local Web server did not become ready."
           exit 1
 
-      - name: Run Godot Web build in headless Chrome
+      - name: Run Web build in Chromium and probe with CDP
         shell: bash
         run: |
           set -euo pipefail
@@ -121,49 +326,31 @@ jobs:
           echo "Browser: $chrome"
           "$chrome" --version | tee browser-version.txt
 
-          set +e
-          timeout 120s "$chrome" \
-            --headless=new \
+          rm -rf "$RUNNER_TEMP/tof-browser-profile"
+          xvfb-run -a "$chrome" \
             --no-sandbox \
             --disable-dev-shm-usage \
             --enable-webgl \
+            --enable-unsafe-swiftshader \
             --ignore-gpu-blocklist \
+            --use-gl=angle \
             --use-angle=swiftshader \
-            --virtual-time-budget=70000 \
-            --dump-dom \
+            --remote-debugging-port=9222 \
+            --remote-allow-origins='*' \
+            --user-data-dir="$RUNNER_TEMP/tof-browser-profile" \
             http://127.0.0.1:8765/index.html \
-            > smoke-dom.html 2> smoke-chrome.log
-          status=$?
-          set -e
+            > smoke-chrome.out 2> smoke-chrome.log &
+          echo $! > chrome-launcher.pid
 
-          echo "Chrome exit code: $status"
-          tail -n 160 smoke-chrome.log || true
-          test "$status" -eq 0
+          python3 browser_probe.py | tee smoke-probe.log
 
-      - name: Verify game boot and Yandex lifecycle
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          grep -Fq 'data-tof-sdk-init="1"' smoke-dom.html
-          grep -Fq 'data-tof-subscribed-game-api-pause="1"' smoke-dom.html
-          grep -Fq 'data-tof-subscribed-game-api-resume="1"' smoke-dom.html
-          grep -Fq 'data-tof-pause-fired="1"' smoke-dom.html
-          grep -Fq 'data-tof-resume-fired="1"' smoke-dom.html
-          grep -Fq 'data-tof-ready="1"' smoke-dom.html
-
-          if grep -Eqi 'RuntimeError|CompileError|WebAssembly.*error|Out of memory|ERR_FILE_NOT_FOUND' smoke-chrome.log; then
-            echo "Browser log contains a hard Web runtime error."
-            grep -Ein 'RuntimeError|CompileError|WebAssembly.*error|Out of memory|ERR_FILE_NOT_FOUND' smoke-chrome.log || true
-            exit 1
-          fi
-
-          echo "Browser smoke test reached LoadingAPI.ready after pause/resume lifecycle events."
-
-      - name: Stop local Web server
+      - name: Stop local browser and server
         if: always()
         shell: bash
         run: |
+          if [ -f chrome-launcher.pid ]; then
+            kill "$(cat chrome-launcher.pid)" 2>/dev/null || true
+          fi
           if [ -f http-server.pid ]; then
             kill "$(cat http-server.pid)" 2>/dev/null || true
           fi
@@ -174,8 +361,11 @@ jobs:
         with:
           name: browser-smoke-${{ github.event.workflow_run.run_number }}
           path: |
-            smoke-dom.html
+            smoke-state.json
+            smoke-cdp-events.jsonl
+            smoke-probe.log
             smoke-chrome.log
+            smoke-chrome.out
             browser-version.txt
             http-server.log
           if-no-files-found: warn
