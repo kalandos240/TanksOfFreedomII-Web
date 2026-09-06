@@ -104,12 +104,13 @@ jobs:
           set -e
           echo "$status" > import-warmup.status
 
-          # A clean checkout can report missing generated Translation resources
-          # before the importer has created them. This pass exists only to build
-          # the cache; the validation pass below must be fully clean.
+          # The first pass builds imported resources, including the RU CSV
+          # translations added by the Web port.
           echo "Godot warm-up import exit code: $status"
           tail -n 80 import-warmup.log || true
           test "$status" -eq 0
+          test -s assets/translations/common.ru.ru.translation
+          test -s assets/translations/core.ru.ru.translation
 
       - name: Validate clean project import
         shell: bash
@@ -127,8 +128,18 @@ jobs:
           tail -n 120 import.log || true
 
           test "$status" -eq 0
-          if grep -Eq '^ERROR:|SCRIPT ERROR:|Parse Error:' import.log; then
-            echo "Unexpected Godot error found after import cache warm-up."
+
+          # Godot 4.4 headless editor has a known shutdown bookkeeping error in
+          # ProgressDialog. Ignore only those exact editor-internal messages;
+          # resource, parse and script errors must still fail the Web build.
+          unexpected_errors="$(
+            grep -E '^ERROR:|SCRIPT ERROR:|Parse Error:' import.log \
+              | grep -Ev 'progress dialog \(task\)|!tasks\.has\(p_task\)' \
+              || true
+          )"
+          if [ -n "$unexpected_errors" ]; then
+            echo "Unexpected Godot project errors after import cache warm-up:"
+            printf '%s\n' "$unexpected_errors"
             exit 1
           fi
 
