@@ -37,6 +37,13 @@ jobs:
         with:
           lfs: true
 
+      - name: Install CI utilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends python3 zip unzip
+
       - name: Validate localization baseline
         shell: bash
         run: |
@@ -129,8 +136,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          apt-get update
-          apt-get install -y zip unzip
           (cd build/web && zip -9 -r ../TanksOfFreedomII-Web-v1.zip .)
           ls -lh build/TanksOfFreedomII-Web-v1.zip
 
