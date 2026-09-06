@@ -4,20 +4,31 @@ on:
   workflow_run:
     workflows: ["Build Web Portal"]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Successful Build Web Portal run ID
+        required: true
+        type: string
+      build_run_number:
+        description: Successful Build Web Portal run number
+        required: true
+        type: string
 
 permissions:
   actions: read
   contents: read
 
 concurrency:
-  group: tanks-of-freedom-ii-browser-smoke-${{ github.event.workflow_run.id }}
+  group: tanks-of-freedom-ii-browser-smoke-${{ github.event_name == 'workflow_dispatch' && inputs.build_run_id || github.event.workflow_run.id }}
   cancel-in-progress: true
 
 jobs:
   browser-smoke:
     if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-24.04
     timeout-minutes: 12
 
@@ -25,11 +36,11 @@ jobs:
       - name: Download Web build artifact
         uses: actions/download-artifact@v4
         with:
-          name: TanksOfFreedomII-Web-v1-${{ github.event.workflow_run.run_number }}
+          name: TanksOfFreedomII-Web-v1-${{ github.event_name == 'workflow_dispatch' && inputs.build_run_number || github.event.workflow_run.run_number }}
           path: artifact
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ github.event_name == 'workflow_dispatch' && inputs.build_run_id || github.event.workflow_run.id }}
 
       - name: Locate exported Web build
         shell: bash
@@ -376,7 +387,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: browser-smoke-${{ github.event.workflow_run.run_number }}
+          name: browser-smoke-${{ github.event_name == 'workflow_dispatch' && inputs.build_run_number || github.event.workflow_run.run_number }}
           path: |
             smoke-state.json
             smoke-cdp-events.jsonl
