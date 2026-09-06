@@ -82,6 +82,9 @@ func _pause_from_platform() -> void:
 	if not self._tree_was_paused:
 		self.get_tree().paused = true
 
+	var tree_paused_literal = "true" if self.get_tree().paused else "false"
+	JavaScriptBridge.eval("if (window.tofYandex) { window.tofYandex.godotPauseApplied = true; window.tofYandex.godotTreePausedAfterPause = %s; }" % tree_paused_literal)
+
 
 func _resume_from_platform() -> void:
 	if not self._tree_was_paused:
@@ -95,6 +98,9 @@ func _resume_from_platform() -> void:
 	var master_bus = AudioServer.get_bus_index("Master")
 	if master_bus >= 0:
 		AudioServer.set_bus_mute(master_bus, self._master_bus_was_muted)
+
+	var tree_paused_literal = "true" if self.get_tree().paused else "false"
+	JavaScriptBridge.eval("if (window.tofYandex) { window.tofYandex.godotResumeApplied = true; window.tofYandex.godotTreePausedAfterResume = %s; }" % tree_paused_literal)
 
 
 func _apply_platform_language() -> void:
