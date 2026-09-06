@@ -227,11 +227,11 @@ pointing/android/enable_pan_and_scale_gestures=true
 
 [internationalization]
 
-locale/translations=PackedStringArray("res://assets/translations/common.en.en.translation", "res://assets/translations/common.pl.pl.translation", "res://assets/translations/core.en.en.translation", "res://assets/translations/core.pl.pl.translation")
+locale/translations=PackedStringArray("res://assets/translations/common.en.en.translation", "res://assets/translations/common.pl.pl.translation", "res://assets/translations/common.ru.ru.translation", "res://assets/translations/core.en.en.translation", "res://assets/translations/core.pl.pl.translation", "res://assets/translations/core.ru.ru.translation")
 
 [locale]
 
-translations=PackedStringArray("res://assets/translations/core.en.en.translation", "res://assets/translations/core.pl.pl.translation", "res://assets/translations/common.en.en.translation", "res://assets/translations/common.pl.pl.translation")
+translations=PackedStringArray("res://assets/translations/core.en.en.translation", "res://assets/translations/core.pl.pl.translation", "res://assets/translations/core.ru.ru.translation", "res://assets/translations/common.en.en.translation", "res://assets/translations/common.pl.pl.translation", "res://assets/translations/common.ru.ru.translation")
 
 [network]
 

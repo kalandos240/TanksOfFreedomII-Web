@@ -132,6 +132,17 @@ func _load_translations(directory_path):
 				position.add_message(key, translations[locale][key])
 			TranslationServer.add_translation(position)
 
+	# Keep Russian text in a Web-port overlay so upstream campaign JSON can be
+	# refreshed without overwriting the translation work.
+	var ru_overlay_path = directory_path + "/translations.ru.json"
+	if self.filesystem.file_exists(ru_overlay_path):
+		var ru_messages = self.filesystem.read_json_from_file(ru_overlay_path)
+		var ru_translation = Translation.new()
+		ru_translation.locale = "ru"
+		for key in ru_messages:
+			ru_translation.add_message(key, ru_messages[key])
+		TranslationServer.add_translation(ru_translation)
+
 func _get_scenario_index(campaign_name, scenario_name):
 	var manifest = self.get_campaign(campaign_name)
 	if manifest.is_empty():

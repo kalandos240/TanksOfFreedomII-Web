@@ -28,7 +28,10 @@ func _read_setting():
 
 	for known_value in self.available_values:
 		if value == known_value:
-			if known_value is String:
+			if self.option_key == "locale":
+				var language_names = {"en": "English", "pl": "Polski", "ru": "Русский"}
+				self.button_label.set_text(language_names.get(str(known_value), str(known_value)))
+			elif known_value is String:
 				self.button_label.set_text(known_value)
 			else:
 				self.button_label.set_text(str(known_value))

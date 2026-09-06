@@ -29,6 +29,7 @@ var settings = {
 	"fps": 60.0,
 	"ips": 60.0,
 	"locale": "en",
+	"platform_locale_initialized": false,
 	"notify_ap_spent": true,
 	"show_intro": true,
 	"show_controls": true,

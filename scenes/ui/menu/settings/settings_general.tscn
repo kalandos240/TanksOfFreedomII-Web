@@ -27,7 +27,7 @@ layout_mode = 2
 option_name = "TR_LANG"
 option_key = "locale"
 help_tip = "TR_LANG_DESC"
-available_values = ["en", "pl"]
+available_values = ["en", "pl", "ru"]
 
 [node name="intro" parent="VBoxContainer" instance=ExtResource("1")]
 layout_mode = 2
