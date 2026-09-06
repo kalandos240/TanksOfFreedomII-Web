@@ -14,6 +14,7 @@ on:
       - tools/apply_web_runtime_fixes.py
       - tools/apply_yandex_port.py
       - tools/apply_web_size_optimizations.py
+      - tools/package_yandex_web.py
       - tools/check_localization.py
       - .github/workflows/build-web.yml
   workflow_dispatch:
@@ -43,7 +44,7 @@ jobs:
         run: |
           set -euo pipefail
           apt-get update
-          apt-get install -y --no-install-recommends python3 zip unzip
+          apt-get install -y --no-install-recommends python3 zip unzip nodejs
 
       - name: Apply Web size optimization profile
         shell: bash
@@ -113,22 +114,46 @@ jobs:
           tail -n 180 build-web.log || true
           test "$status" -eq 0
 
+      - name: Package compressed Yandex payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/package_yandex_web.py
+          python3 tools/package_yandex_web.py build/web | tee yandex-package.txt
+
+          # Syntax-check only the injected loader JavaScript.
+          python3 - <<'PY' > compressed-loader.js
+          from pathlib import Path
+          html = Path('build/web/index.html').read_text(encoding='utf-8')
+          tag = '<script data-tof-compressed-loader="1">'
+          start = html.index(tag) + len(tag)
+          end = html.index('</script>', start)
+          print(html[start:end])
+          PY
+          node --check compressed-loader.js
+
       - name: Verify Web export and Yandex archive rules
         shell: bash
         run: |
           set -euo pipefail
           test -s build/web/index.html
-          find build/web -maxdepth 1 -type f -printf '%f\t%s bytes\n' | sort | tee build-sizes.txt
-          find build/web -maxdepth 1 -type f -name '*.wasm' -size +0c | grep -q .
-          find build/web -maxdepth 1 -type f -name '*.pck' -size +0c | grep -q .
+          test -s build/web/index.js
+          test -s build/web/index.wasmz
+          test -s build/web/index.pckz
+          test ! -e build/web/index.wasm
+          test ! -e build/web/index.pck
 
-          # Yandex SDK must be embedded through the exported HTML head.
+          find build/web -maxdepth 1 -type f -printf '%f\t%s bytes\n' | sort | tee build-sizes.txt
+
+          # Yandex SDK and the compressed payload loader must be embedded.
           grep -Fq '<script src="/sdk.js"></script>' build/web/index.html
           grep -Fq 'LoadingAPI' build/web/index.html
+          grep -Fq 'data-tof-compressed-loader="1"' build/web/index.html
+          grep -Fq 'DecompressionStream' build/web/index.html
 
-          # Yandex Games: unpacked archive must not exceed 100 MB.
-          unpacked_bytes="$(du -sb build/web | cut -f1)"
-          echo "Unpacked build: ${unpacked_bytes} bytes" | tee -a build-sizes.txt
+          # Yandex Games: sum of files in the unpacked archive must not exceed 100 MB.
+          unpacked_bytes="$(find build/web -type f -printf '%s\n' | awk '{sum += $1} END {print sum + 0}')"
+          echo "Unpacked file bytes: ${unpacked_bytes}" | tee -a build-sizes.txt
           test "$unpacked_bytes" -le 100000000
 
           # Yandex Games: no spaces or Cyrillic characters in archive paths.
@@ -146,8 +171,9 @@ jobs:
           (cd build/web && zip -9 -r ../TanksOfFreedomII-Web-v1.zip .)
           ls -lh build/TanksOfFreedomII-Web-v1.zip
 
-          # index.html must be at the archive root.
+          # index.html must be at archive root and ZIP itself stays below 100 MB too.
           unzip -Z1 build/TanksOfFreedomII-Web-v1.zip | grep -qx 'index.html'
+          test "$(stat -c '%s' build/TanksOfFreedomII-Web-v1.zip)" -le 100000000
 
       - name: Upload build and diagnostics
         if: always()
@@ -159,6 +185,8 @@ jobs:
             build/web/
             build-sizes.txt
             size-optimization.txt
+            yandex-package.txt
+            compressed-loader.js
             build-web.log
             build-web.status
             import.log
