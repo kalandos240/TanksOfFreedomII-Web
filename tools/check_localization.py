@@ -25,9 +25,8 @@ def read_csv_keys(path: Path) -> tuple[list[str], dict[str, str]]:
         value = row[1] if len(row) > 1 else ""
         if not key:
             continue
-        # The upstream CSV contains a small number of intentionally repeated
-        # keys (for example TR_GENERAL). Godot effectively keeps one mapping,
-        # so coverage is checked against the unique key set as well.
+        # Upstream contains a few repeated keys. Godot effectively keeps one
+        # mapping, so coverage intentionally compares the unique key set.
         values[key] = value
     return [locale], values
 
@@ -50,12 +49,28 @@ def check_csv_group(stem: str, required: list[str]) -> list[str]:
         for key in sorted(keys - canonical_keys):
             errors.append(f"EXTRA {locale}: {stem}:{key}")
         for key in sorted(canonical_keys & keys):
-            # An intentionally blank English canonical value is allowed to be
-            # blank in every locale. Non-empty English text must be translated.
+            # An intentionally blank English canonical value may be blank in
+            # every locale. Non-empty English text must have non-empty text.
             if canonical[key].strip() and not values[key].strip():
                 errors.append(f"BLANK {locale}: {stem}:{key}")
 
     return errors
+
+
+def read_campaign_locale(path: Path, data: dict, locale: str):
+    values = data.get(locale)
+    if isinstance(values, dict):
+        return values
+
+    # Russian is maintained as a separate overlay so upstream campaign JSON
+    # can be refreshed by bootstrap without overwriting translation work.
+    if locale == "ru":
+        overlay = path.with_name("translations.ru.json")
+        if overlay.exists():
+            values = json.loads(overlay.read_text(encoding="utf-8"))
+            if isinstance(values, dict):
+                return values
+    return None
 
 
 def check_campaign(path: Path, required: list[str]) -> list[str]:
@@ -69,7 +84,7 @@ def check_campaign(path: Path, required: list[str]) -> list[str]:
     label = path.parent.name
 
     for locale in required:
-        values = data.get(locale)
+        values = read_campaign_locale(path, data, locale)
         if not isinstance(values, dict):
             errors.append(f"MISSING LANGUAGE {locale}: campaign:{label}")
             continue
@@ -93,20 +108,36 @@ def main() -> int:
     parser.add_argument(
         "--required",
         nargs="+",
-        default=["en", "pl"],
-        help="Locales that must match the English canonical key set (for final portal build use: en pl ru).",
+        default=None,
+        help="Backward-compatible locale list applied to both UI CSV and campaigns.",
+    )
+    parser.add_argument(
+        "--required-csv",
+        nargs="+",
+        default=None,
+        help="Locales required for common/core CSV files.",
+    )
+    parser.add_argument(
+        "--required-campaigns",
+        nargs="+",
+        default=None,
+        help="Locales required for campaign translations (RU may use translations.ru.json overlays).",
     )
     args = parser.parse_args()
 
+    shared = args.required if args.required is not None else ["en", "pl"]
+    csv_required = args.required_csv if args.required_csv is not None else shared
+    campaign_required = args.required_campaigns if args.required_campaigns is not None else shared
+
     errors: list[str] = []
     for stem in ("common", "core"):
-        errors.extend(check_csv_group(stem, args.required))
+        errors.extend(check_csv_group(stem, csv_required))
 
     campaign_files = sorted(CAMPAIGNS.glob("*/translations.json"))
     if not campaign_files:
         errors.append("No campaign translations.json files found")
     for path in campaign_files:
-        errors.extend(check_campaign(path, args.required))
+        errors.extend(check_campaign(path, campaign_required))
 
     if errors:
         print(f"Localization coverage FAILED: {len(errors)} issue(s)")
@@ -115,7 +146,8 @@ def main() -> int:
         return 1
 
     print("Localization coverage OK")
-    print("Required locales:", ", ".join(args.required))
+    print("Required UI locales:", ", ".join(csv_required))
+    print("Required campaign locales:", ", ".join(campaign_required))
     print("Campaign translation files:", len(campaign_files))
     return 0
 
