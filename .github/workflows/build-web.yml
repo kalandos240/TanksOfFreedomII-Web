@@ -1,0 +1,76 @@
+name: Build Web Portal
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build-web.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: barichello/godot-ci:4.4
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Install export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.local/share/godot/export_templates/
+          if [ -d /root/.local/share/godot/export_templates/4.4.stable ]; then
+            mv /root/.local/share/godot/export_templates/4.4.stable ~/.local/share/godot/export_templates/4.4.stable
+          fi
+          godot --version
+
+      - name: Import project
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --editor --path . --quit
+
+      - name: Export Web Portal
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/web
+          godot --headless --verbose --path . --export-release "Web Portal" build/web/index.html 2>&1 | tee build-web.log
+
+      - name: Verify Web export
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s build/web/index.html
+          find build/web -maxdepth 1 -type f -printf '%f\t%s bytes\n' | sort | tee build-sizes.txt
+          find build/web -maxdepth 1 -type f -name '*.wasm' -size +0c | grep -q .
+          find build/web -maxdepth 1 -type f -name '*.pck' -size +0c | grep -q .
+
+      - name: Create portal ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y zip
+          (cd build/web && zip -9 -r ../TanksOfFreedomII-Web-v1.zip .)
+          ls -lh build/TanksOfFreedomII-Web-v1.zip
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TanksOfFreedomII-Web-v1
+          path: |
+            build/TanksOfFreedomII-Web-v1.zip
+            build-sizes.txt
+            build-web.log
+          if-no-files-found: error
+          retention-days: 14
