@@ -22,6 +22,7 @@ func _ready():
 	self.register_sample("fanfare", preload("res://assets/audio/fanfare.wav"))
 	self.register_sample("failfare", preload("res://assets/audio/failfare.wav"))
 
+
 	self.register_track("intro", preload("res://assets/audio/soundtrack/grand_beats_intro.ogg"))
 	self.register_track("menu", preload("res://assets/audio/soundtrack/grand_beats_menu_soundtrack.ogg"))
 	self.register_track("soundtrack_1", preload("res://assets/audio/soundtrack/grand_beats_soundtrack_1_metal.ogg"))
@@ -31,10 +32,9 @@ func _ready():
 	self.register_track("soundtrack_5", preload("res://assets/audio/soundtrack/reduz_the_sorrows_of_a_crab.ogg"))
 	self.register_track("soundtrack_6", preload("res://assets/audio/soundtrack/reduz_capybara_love.ogg"))
 
+
 func _notification(what):
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
-		# Browser tab/ad focus loss: keep transient SFX from continuing in background
-		# and remember whether music should resume when focus returns.
 		self._paused_for_focus = self.current_track != null and self.current_track.is_playing()
 		self.pause()
 		for sample in self.samples.values():
@@ -97,6 +97,7 @@ func unpause(track_name=null):
 	elif self.soundtracks.has(track_name):
 		self.soundtracks[track_name].set_stream_paused(false)
 
+
 func register_sample(sample_name, stream):
 	if stream == null:
 		return
@@ -105,7 +106,9 @@ func register_sample(sample_name, stream):
 	self.get_tree().get_root().call_deferred("add_child", sfx)
 	sfx.set_stream(stream)
 	sfx.set_bus(self.BUS_SFX)
+
 	self.samples[sample_name] = sfx
+
 
 func register_track(track_name, stream):
 	if stream == null:
@@ -115,6 +118,7 @@ func register_track(track_name, stream):
 	self.get_tree().get_root().call_deferred("add_child", new_track)
 	new_track.set_stream(stream)
 	new_track.set_bus(self.BUS_MUSIC)
+
 	self.soundtracks[track_name] = new_track
 
 func restart_track():

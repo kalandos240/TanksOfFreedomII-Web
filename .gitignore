@@ -29,7 +29,3 @@ docs/devlog/steam/trailer/gameplay.mp4
 
 # Web portal fork tracks its reproducible export preset.
 !export_presets.cfg
-
-# Generated Python bytecode
-__pycache__/
-*.py[cod]
