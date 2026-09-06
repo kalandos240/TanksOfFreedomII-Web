@@ -207,7 +207,11 @@ jobs:
                 failed: !!state.failed,
                 lang: state.lang || "",
                 gameReadySent: !!state.gameReadySent,
-                platformPaused: !!state.platformPaused
+                platformPaused: !!state.platformPaused,
+                godotPauseApplied: Object.prototype.hasOwnProperty.call(state, "godotPauseApplied") ? state.godotPauseApplied : null,
+                godotTreePausedAfterPause: Object.prototype.hasOwnProperty.call(state, "godotTreePausedAfterPause") ? state.godotTreePausedAfterPause : null,
+                godotResumeApplied: Object.prototype.hasOwnProperty.call(state, "godotResumeApplied") ? state.godotResumeApplied : null,
+                godotTreePausedAfterResume: Object.prototype.hasOwnProperty.call(state, "godotTreePausedAfterResume") ? state.godotTreePausedAfterResume : null
               } : null,
               title: document.title
             };
@@ -234,10 +238,15 @@ jobs:
                       json.dump(state, handle, ensure_ascii=False, indent=2)
                   print(json.dumps(state, ensure_ascii=False, sort_keys=True), flush=True)
 
+                  yandex = state.get("yandex") or {}
                   if (
                       state.get("ready") == "1"
                       and state.get("pauseFired") == "1"
                       and state.get("resumeFired") == "1"
+                      and yandex.get("godotPauseApplied") is True
+                      and yandex.get("godotTreePausedAfterPause") is True
+                      and yandex.get("godotResumeApplied") is True
+                      and yandex.get("godotTreePausedAfterResume") is False
                   ):
                       break
               time.sleep(1)
@@ -272,6 +281,14 @@ jobs:
               failures["yandex.gameReadySent"] = (yandex.get("gameReadySent"), True)
           if yandex.get("platformPaused") is not False:
               failures["yandex.platformPaused"] = (yandex.get("platformPaused"), False)
+          if yandex.get("godotPauseApplied") is not True:
+              failures["yandex.godotPauseApplied"] = (yandex.get("godotPauseApplied"), True)
+          if yandex.get("godotTreePausedAfterPause") is not True:
+              failures["yandex.godotTreePausedAfterPause"] = (yandex.get("godotTreePausedAfterPause"), True)
+          if yandex.get("godotResumeApplied") is not True:
+              failures["yandex.godotResumeApplied"] = (yandex.get("godotResumeApplied"), True)
+          if yandex.get("godotTreePausedAfterResume") is not False:
+              failures["yandex.godotTreePausedAfterResume"] = (yandex.get("godotTreePausedAfterResume"), False)
 
           hard_events = []
           for event in events:
@@ -292,7 +309,7 @@ jobs:
               print(json.dumps(failures, ensure_ascii=False, indent=2), file=sys.stderr)
               raise SystemExit(1)
 
-          print("Browser smoke reached LoadingAPI.ready after Yandex pause/resume events.")
+          print("Browser smoke confirmed Yandex SDK -> JS -> Godot SceneTree pause/resume round trip.")
           PY
 
       - name: Start local Web server
