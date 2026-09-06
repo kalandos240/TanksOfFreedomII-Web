@@ -8,6 +8,7 @@ on:
       - tools/apply_web_port.py
       - tools/apply_web_runtime_fixes.py
       - tools/apply_web_touch_fixes.py
+      - tools/apply_web_ui_hardening.py
       - tools/apply_yandex_port.py
       - tools/apply_ru_localization.py
       - tools/apply_web_size_optimizations.py
@@ -59,6 +60,7 @@ jobs:
             tools/apply_web_port.py \
             tools/apply_web_runtime_fixes.py \
             tools/apply_web_touch_fixes.py \
+            tools/apply_web_ui_hardening.py \
             tools/apply_yandex_port.py \
             tools/apply_ru_localization.py \
             tools/apply_web_size_optimizations.py \
@@ -67,6 +69,7 @@ jobs:
           python3 tools/apply_web_port.py
           python3 tools/apply_web_runtime_fixes.py
           python3 tools/apply_web_touch_fixes.py
+          python3 tools/apply_web_ui_hardening.py
           python3 tools/apply_yandex_port.py
           python3 tools/apply_ru_localization.py
           python3 tools/apply_web_size_optimizations.py
