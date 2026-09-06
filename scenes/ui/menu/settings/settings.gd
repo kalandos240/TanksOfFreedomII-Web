@@ -10,6 +10,7 @@ extends Control
 @onready var audio_button = $"widgets/tabs/audio"
 @onready var gameplay_button = $"widgets/tabs/gameplay"
 @onready var controls_button = $"widgets/tabs/controls"
+@onready var multiplayer_button = $"widgets/tabs/multiplayer"
 @onready var back_button = $"widgets/back_button"
 
 @onready var general_panel = $"widgets/boxes/settings_general"
@@ -30,6 +31,7 @@ func bind_menu(menu):
 
 func _ready():
 	self.set_process_input(false)
+	self.multiplayer_button.hide()
 	for category_panel in $widgets/boxes.get_children():
 		category_panel.help_requested.connect(show_help)
 		category_panel.clear_help_requested.connect(hide_help)

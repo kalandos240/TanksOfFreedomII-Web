@@ -42,7 +42,7 @@ layout_mode = 2
 option_name = "TR_ONLINE_DOMAIN"
 option_key = "online_domain"
 help_tip = "TR_ONLINE_DOMAIN_DESC"
-placeholder = "api.tof.p1x.in"
+placeholder = ""
 is_int = false
 
 [node name="online_port" parent="VBoxContainer" instance=ExtResource("1_0q3q6")]
@@ -50,14 +50,14 @@ layout_mode = 2
 option_name = "TR_ONLINE_PORT"
 option_key = "online_port"
 help_tip = "TR_ONLINE_PORT_DESC"
-placeholder = "443"
+placeholder = "0"
 
 [node name="relay_domain" parent="VBoxContainer" instance=ExtResource("1_0q3q6")]
 layout_mode = 2
 option_name = "TR_RELAY_DOMAIN"
 option_key = "relay_domain"
 help_tip = "TR_RELAY_DOMAIN_DESC"
-placeholder = "api.tof.p1x.in"
+placeholder = ""
 is_int = false
 
 [node name="relay_port" parent="VBoxContainer" instance=ExtResource("1_0q3q6")]
@@ -65,7 +65,7 @@ layout_mode = 2
 option_name = "TR_RELAY_PORT"
 option_key = "relay_port"
 help_tip = "TR_RELAY_PORT_DESC"
-placeholder = "9939"
+placeholder = "0"
 
 [node name="reset_button" type="TextureButton" parent="."]
 layout_mode = 0

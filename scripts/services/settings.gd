@@ -20,10 +20,10 @@ var settings = {
 	"hq_cam" : false,
 	"cam_shake" : true,
 	"def_cam_st" : "TOF",
-	"shadows" : true,
+	"shadows" : false,
 	"decorations" : true,
-	"dec_shadows" : true,
-	"msaa": 2.0,
+	"dec_shadows" : false,
+	"msaa": 0.0,
 	"fxaa": false,
 	"vsync": false,
 	"fps": 60.0,
@@ -37,22 +37,42 @@ var settings = {
 	"last_used_port": "3959",
 	"game_port": 3959,
 	"discovery_port": 3960,
-	"edge_pan": true,
-	"online_domain": "api.tof.p1x.in",
-	"online_port": 443,
-	"relay_domain": "api.tof.p1x.in",
-	"relay_port": 9959,
+	"edge_pan": false,
+	"online_domain": "",
+	"online_port": 0,
+	"relay_domain": "",
+	"relay_port": 0,
 	"end_turn_speed": "x1",
 	"show_health": true,
 	"scale_ui": true,
-	"render_scale": 100,
-	"tilt_shift_enabled": true
+	"render_scale": 90,
+	"tilt_shift_enabled": false
 }
 
 
 func _ready():
 	self._detect_steam_deck()
 	self.load_settings_from_file()
+	self._apply_web_profile()
+
+func _apply_web_profile():
+	# Portal build: deterministic browser-safe defaults.
+	# Apply after loading saved settings so unsupported values cannot return.
+	self.settings["shadows"] = false
+	self.settings["dec_shadows"] = false
+	self.settings["msaa"] = 0.0
+	self.settings["fxaa"] = false
+	self.settings["vsync"] = false
+	self.settings["fps"] = 60.0
+	self.settings["ips"] = 60.0
+	self.settings["edge_pan"] = false
+	self.settings["tilt_shift_enabled"] = false
+	self.settings["online_domain"] = ""
+	self.settings["online_port"] = 0
+	self.settings["relay_domain"] = ""
+	self.settings["relay_port"] = 0
+	for key in ["msaa", "fxaa", "vsync", "fps", "ips", "render_scale"]:
+		self._apply_option(key)
 
 func save_settings_to_file():
 	self.filesystem.write_data_as_json_to_file(self.SETTINGS_FILE_PATH, self.settings)
@@ -70,6 +90,11 @@ func get_option(key):
 	return null
 
 func set_option(key, value):
+	# Keep browser-incompatible values from being re-enabled at runtime.
+	if key == "tilt_shift_enabled" or key == "edge_pan":
+		value = false
+	elif key == "fps" or key == "ips":
+		value = min(float(value), 60.0)
 	self.settings[key] = value
 	self.save_settings_to_file()
 

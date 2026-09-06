@@ -22,8 +22,11 @@ func _ready():
 	self.set_process_input(true)
 	self.campaign_button.grab_focus()
 
-	if OS.has_feature("demo"):
-		self.online_button.set_disabled(true)
+	# Portal fork is intentionally offline.
+	self.online_button.hide()
+	self.multiplayer_button.hide()
+	if OS.has_feature("web"):
+		self.quit_button.hide()
 
 func _input(event):
 	if event.is_action_pressed("ui_cancel"):
