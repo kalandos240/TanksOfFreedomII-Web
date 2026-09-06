@@ -27,72 +27,49 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
-def patch_project_translation_resources() -> None:
+def patch_project_translation_runtime() -> None:
     path = "project.godot"
     text = read(path)
 
-    old_intl = (
-        'locale/translations=PackedStringArray("res://assets/translations/common.en.en.translation", '
-        '"res://assets/translations/common.pl.pl.translation", '
-        '"res://assets/translations/core.en.en.translation", '
-        '"res://assets/translations/core.pl.pl.translation")'
-    )
-    new_intl = (
-        'locale/translations=PackedStringArray("res://assets/translations/common.en.en.translation", '
-        '"res://assets/translations/common.pl.pl.translation", '
-        '"res://assets/translations/common.ru.ru.translation", '
-        '"res://assets/translations/core.en.en.translation", '
-        '"res://assets/translations/core.pl.pl.translation", '
-        '"res://assets/translations/core.ru.ru.translation")'
-    )
-    text = replace_once(text, old_intl, new_intl, "internationalization RU resources")
+    # Russian UI strings are registered at runtime from the source CSV files.
+    # Do not reference generated *.translation files here: on a clean CI clone
+    # those resources do not exist yet, and Godot 4.4 can abort or stall while
+    # trying to generate them during a headless import pass.
+    for ru_resource in (
+        "res://assets/translations/common.ru.ru.translation",
+        "res://assets/translations/core.ru.ru.translation",
+    ):
+        text = text.replace(f', "{ru_resource}"', "")
+        text = text.replace(f'"{ru_resource}", ', "")
+        text = text.replace(f'"{ru_resource}"', "")
 
-    old_locale = (
-        'translations=PackedStringArray("res://assets/translations/core.en.en.translation", '
-        '"res://assets/translations/core.pl.pl.translation", '
-        '"res://assets/translations/common.en.en.translation", '
-        '"res://assets/translations/common.pl.pl.translation")'
-    )
-    new_locale = (
-        'translations=PackedStringArray("res://assets/translations/core.en.en.translation", '
-        '"res://assets/translations/core.pl.pl.translation", '
-        '"res://assets/translations/core.ru.ru.translation", '
-        '"res://assets/translations/common.en.en.translation", '
-        '"res://assets/translations/common.pl.pl.translation", '
-        '"res://assets/translations/common.ru.ru.translation")'
-    )
-    text = replace_once(text, old_locale, new_locale, "locale RU resources")
+    autoload = 'RuTranslationLoader="*res://scripts/services/ru_translation_loader.gd"\n'
+    if autoload not in text:
+        anchor = 'Settings="*res://scripts/services/settings.gd"\n'
+        text = replace_once(
+            text,
+            anchor,
+            autoload + anchor,
+            "Russian runtime translation autoload",
+        )
+
     write(path, text)
 
 
-def write_ru_translation_importers() -> None:
-    # The upstream English/Polish CSV files ship with Godot .import metadata and
-    # checked-in generated Translation resources. The Web-port Russian CSV files
-    # are authored separately, so recreate equivalent importer metadata on every
-    # deterministic bootstrap/build. A clean Godot import can then generate the
-    # two binary *.translation resources before the validation pass.
-    template = '''[remap]
+def patch_export_ru_csv_sources() -> None:
+    path = "export_presets.cfg"
+    text = read(path)
+    required_filter = "assets/translations/*.ru.csv"
 
-importer="csv_translation"
-type="Translation"
-
-[deps]
-
-files=["res://assets/translations/{stem}.ru.translation"]
-
-source_file="res://assets/translations/{stem}.csv"
-dest_files=["res://assets/translations/{stem}.ru.translation"]
-
-[params]
-
-compress=true
-delimiter=0
-'''
-    for stem in ("common.ru", "core.ru"):
-        write(
-            f"assets/translations/{stem}.csv.import",
-            template.format(stem=stem),
+    if required_filter not in text:
+        text = replace_once(
+            text,
+            'include_filter=""',
+            f'include_filter="{required_filter}"',
+            "raw Russian CSV Web export filter",
         )
+
+    write(path, text)
 
 
 def patch_language_selector_values() -> None:
@@ -238,8 +215,8 @@ def patch_campaign_ru_overlay_loader() -> None:
 
 
 def main() -> None:
-    patch_project_translation_resources()
-    write_ru_translation_importers()
+    patch_project_translation_runtime()
+    patch_export_ru_csv_sources()
     patch_language_selector_values()
     patch_language_selector_labels()
     patch_settings_first_run_marker()
