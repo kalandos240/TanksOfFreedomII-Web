@@ -60,9 +60,8 @@ def patch_audio_focus() -> None:
     path = "scripts/services/audio.gd"
     text = read(path)
 
-    old_vars = "var current_track = null\n\nvar master_switch = false\n"
+    old_vars = "var _last_requested_track = null\n\nvar master_switch = false\n"
     new_vars = (
-        "var current_track = null\n"
         "var _last_requested_track = null\n"
         "var _paused_for_focus := false\n\n"
         "var master_switch = false\n"
@@ -84,23 +83,6 @@ def patch_audio_focus() -> None:
         "func play(sample_name):\n"
     )
     text = replace_once(text, old_play, new_play, "audio focus notification")
-
-    old_track = (
-        "func track(track_name):\n"
-        "\tif not self.master_switch or not self.music_enabled:\n"
-        "\t\treturn\n\n"
-        "\tif not self.soundtracks.has(track_name):\n"
-        "\t\treturn\n\n"
-    )
-    new_track = (
-        "func track(track_name):\n"
-        "\tif not self.soundtracks.has(track_name):\n"
-        "\t\treturn\n\n"
-        "\tself._last_requested_track = self.soundtracks[track_name]\n\n"
-        "\tif not self.master_switch or not self.music_enabled:\n"
-        "\t\treturn\n\n"
-    )
-    text = replace_once(text, old_track, new_track, "last requested soundtrack")
 
     write(path, text)
 
