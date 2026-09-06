@@ -12,6 +12,7 @@ on:
       - localization/**
       - tools/apply_web_port.py
       - tools/apply_web_runtime_fixes.py
+      - tools/apply_web_touch_fixes.py
       - tools/apply_yandex_port.py
       - tools/apply_web_size_optimizations.py
       - tools/package_yandex_web.py
@@ -45,6 +46,13 @@ jobs:
           set -euo pipefail
           apt-get update
           apt-get install -y --no-install-recommends python3 zip unzip nodejs
+
+      - name: Apply native Web touch controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/apply_web_touch_fixes.py
+          python3 tools/apply_web_touch_fixes.py | tee touch-fixes.txt
 
       - name: Apply Web size optimization profile
         shell: bash
@@ -184,6 +192,7 @@ jobs:
             build/TanksOfFreedomII-Web-v1.zip
             build/web/
             build-sizes.txt
+            touch-fixes.txt
             size-optimization.txt
             yandex-package.txt
             compressed-loader.js
