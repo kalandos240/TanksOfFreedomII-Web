@@ -120,6 +120,9 @@ func _pause_from_platform() -> void:
 \tif not self._tree_was_paused:
 \t\tself.get_tree().paused = true
 
+\tvar tree_paused_literal = "true" if self.get_tree().paused else "false"
+\tJavaScriptBridge.eval("if (window.tofYandex) { window.tofYandex.godotPauseApplied = true; window.tofYandex.godotTreePausedAfterPause = %s; }" % tree_paused_literal)
+
 
 func _resume_from_platform() -> void:
 \tif not self._tree_was_paused:
@@ -133,6 +136,9 @@ func _resume_from_platform() -> void:
 \tvar master_bus = AudioServer.get_bus_index("Master")
 \tif master_bus >= 0:
 \t\tAudioServer.set_bus_mute(master_bus, self._master_bus_was_muted)
+
+\tvar tree_paused_literal = "true" if self.get_tree().paused else "false"
+\tJavaScriptBridge.eval("if (window.tofYandex) { window.tofYandex.godotResumeApplied = true; window.tofYandex.godotTreePausedAfterResume = %s; }" % tree_paused_literal)
 
 
 func _apply_platform_language() -> void:
@@ -192,7 +198,11 @@ def patch_export_head() -> None:
     failed: false,
     lang: "",
     gameReadySent: false,
-    platformPaused: false
+    platformPaused: false,
+    godotPauseApplied: false,
+    godotTreePausedAfterPause: null,
+    godotResumeApplied: false,
+    godotTreePausedAfterResume: null
   };
 
   state.markReady = function () {
