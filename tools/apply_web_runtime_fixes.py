@@ -11,7 +11,9 @@ def read(path: str) -> str:
 
 
 def write(path: str, text: str) -> None:
-    (ROOT / path).write_text(text, encoding="utf-8", newline="\n")
+    target = ROOT / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8", newline="\n")
 
 
 def replace_once(text: str, old: str, new: str, label: str) -> str:
@@ -87,10 +89,33 @@ def patch_audio_focus() -> None:
     write(path, text)
 
 
+def patch_missing_reflection_materials() -> None:
+    # Upstream contains two river reflection OBJ files that reference MTL files
+    # which are absent from the repository. Godot imports the geometry without
+    # them, but emits hard ERROR lines and the surfaces lose their palette map.
+    # Recreate the deterministic MagicaVoxel material definitions so clean Web
+    # imports are error-free and visually match the neighboring reflection assets.
+    template = """# MagicaVoxel @ Ephtracy
+
+newmtl palette
+illum 1
+Ka 0.000 0.000 0.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+map_Kd {texture}
+"""
+    for stem in ("river_1_reflection", "river_2_reflection"):
+        write(
+            f"assets/terrain/reflections/{stem}.mtl",
+            template.format(texture=f"{stem}.png"),
+        )
+
+
 def main() -> None:
     patch_web_texture_imports()
     patch_browser_fullscreen()
     patch_audio_focus()
+    patch_missing_reflection_materials()
     print("Applied browser runtime and Web export fixes.")
 
 
