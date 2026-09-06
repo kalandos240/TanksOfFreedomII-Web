@@ -40,13 +40,19 @@ jobs:
 
           printf '%s\n' "$UPSTREAM_SHA" > UPSTREAM_COMMIT
 
-      - name: Apply Web Portal v1 and runtime/export fixes
+      - name: Apply Web Portal and Yandex Games patches
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/apply_web_port.py tools/apply_web_runtime_fixes.py
+          python3 -m py_compile \
+            tools/apply_web_port.py \
+            tools/apply_web_runtime_fixes.py \
+            tools/apply_yandex_port.py \
+            tools/check_localization.py
           python3 tools/apply_web_port.py
           python3 tools/apply_web_runtime_fixes.py
+          python3 tools/apply_yandex_port.py
+          python3 tools/check_localization.py --required en pl
 
       - name: Commit imported and patched source
         shell: bash
