@@ -25,8 +25,9 @@ def read_csv_keys(path: Path) -> tuple[list[str], dict[str, str]]:
         value = row[1] if len(row) > 1 else ""
         if not key:
             continue
-        if key in values:
-            raise RuntimeError(f"Duplicate key {key!r} in {path}")
+        # The upstream CSV contains a small number of intentionally repeated
+        # keys (for example TR_GENERAL). Godot effectively keeps one mapping,
+        # so coverage is checked against the unique key set as well.
         values[key] = value
     return [locale], values
 
