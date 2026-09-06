@@ -22,6 +22,22 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
+def patch_web_texture_imports() -> None:
+    path = "project.godot"
+    text = read(path)
+
+    if "textures/vram_compression/import_etc2_astc=true" not in text:
+        anchor = 'renderer/rendering_method.web="gl_compatibility"\n'
+        addition = (
+            anchor
+            + "textures/vram_compression/import_etc2_astc=true\n"
+            + "textures/vram_compression/import_s3tc_bptc=true\n"
+        )
+        text = replace_once(text, anchor, addition, "Web texture import formats")
+
+    write(path, text)
+
+
 def patch_browser_fullscreen() -> None:
     path = "scripts/services/settings.gd"
     text = read(path)
@@ -90,9 +106,10 @@ def patch_audio_focus() -> None:
 
 
 def main() -> None:
+    patch_web_texture_imports()
     patch_browser_fullscreen()
     patch_audio_focus()
-    print("Applied browser runtime fixes.")
+    print("Applied browser runtime and Web export fixes.")
 
 
 if __name__ == "__main__":
