@@ -50,7 +50,9 @@ def check_csv_group(stem: str, required: list[str]) -> list[str]:
         for key in sorted(keys - canonical_keys):
             errors.append(f"EXTRA {locale}: {stem}:{key}")
         for key in sorted(canonical_keys & keys):
-            if not values[key].strip():
+            # An intentionally blank English canonical value is allowed to be
+            # blank in every locale. Non-empty English text must be translated.
+            if canonical[key].strip() and not values[key].strip():
                 errors.append(f"BLANK {locale}: {stem}:{key}")
 
     return errors
@@ -77,8 +79,10 @@ def check_campaign(path: Path, required: list[str]) -> list[str]:
         for key in sorted(keys - canonical_keys):
             errors.append(f"EXTRA {locale}: campaign:{label}:{key}")
         for key in sorted(canonical_keys & keys):
+            canonical_value = canonical[key]
             value = values[key]
-            if not isinstance(value, str) or not value.strip():
+            canonical_has_text = isinstance(canonical_value, str) and bool(canonical_value.strip())
+            if canonical_has_text and (not isinstance(value, str) or not value.strip()):
                 errors.append(f"BLANK {locale}: campaign:{label}:{key}")
 
     return errors
