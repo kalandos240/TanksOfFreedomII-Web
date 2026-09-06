@@ -136,8 +136,19 @@ def main() -> int:
     campaign_files = sorted(CAMPAIGNS.glob("*/translations.json"))
     if not campaign_files:
         errors.append("No campaign translations.json files found")
+
+    ru_overlay_count = 0
     for path in campaign_files:
         errors.extend(check_campaign(path, campaign_required))
+
+        # Every RU overlay that has been committed is considered complete work,
+        # even while other campaigns are still awaiting translation. Validate it
+        # strictly against the English canonical key set from day one.
+        ru_overlay = path.with_name("translations.ru.json")
+        if ru_overlay.exists():
+            ru_overlay_count += 1
+            if "ru" not in campaign_required:
+                errors.extend(check_campaign(path, ["ru"]))
 
     if errors:
         print(f"Localization coverage FAILED: {len(errors)} issue(s)")
@@ -149,6 +160,7 @@ def main() -> int:
     print("Required UI locales:", ", ".join(csv_required))
     print("Required campaign locales:", ", ".join(campaign_required))
     print("Campaign translation files:", len(campaign_files))
+    print("Strict Russian campaign overlays:", ru_overlay_count)
     return 0
 
 
