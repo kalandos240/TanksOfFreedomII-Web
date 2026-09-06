@@ -54,6 +54,7 @@ jobs:
           python3 tools/apply_yandex_port.py
 
           # Upstream currently ships complete English and Polish key sets.
+          # Intentional blank canonical strings are allowed by the checker.
           # Russian becomes required here only after the full RU pass is complete.
           python3 tools/check_localization.py --required en pl
 
