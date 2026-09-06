@@ -11,6 +11,10 @@ on:
       - tools/apply_web_size_optimizations.py
   workflow_dispatch:
 
+concurrency:
+  group: tanks-of-freedom-ii-bootstrap-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -78,4 +82,9 @@ jobs:
           fi
 
           git commit -m "Import upstream and apply Web Portal v1"
+
+          # Connector/user commits may land while the relatively long upstream
+          # import is running. Rebase the deterministic patch commit instead of
+          # failing with a non-fast-forward push.
+          git pull --rebase origin main
           git push origin HEAD:main
