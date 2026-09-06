@@ -40,7 +40,7 @@ jobs:
 
           printf '%s\n' "$UPSTREAM_SHA" > UPSTREAM_COMMIT
 
-      - name: Apply Web Portal v1 patch
+      - name: Apply Web Portal v1 and runtime/export fixes
         shell: bash
         run: |
           set -euo pipefail
