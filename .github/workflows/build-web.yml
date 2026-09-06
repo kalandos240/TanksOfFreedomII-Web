@@ -62,6 +62,13 @@ jobs:
           python3 -m py_compile tools/apply_ru_localization.py
           python3 tools/apply_ru_localization.py | tee ru-localization-runtime.txt
 
+      - name: Apply Web runtime fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/apply_web_runtime_fixes.py
+          python3 tools/apply_web_runtime_fixes.py | tee web-runtime-fixes.txt
+
       - name: Apply Web size optimization profile
         shell: bash
         run: |
@@ -87,7 +94,24 @@ jobs:
           fi
           godot --version | tee godot-version.txt
 
-      - name: Import project
+      - name: Warm project import cache
+        shell: bash
+        run: |
+          set -o pipefail
+          set +e
+          godot --headless --editor --path . --quit 2>&1 | tee import-warmup.log
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "$status" > import-warmup.status
+
+          # A clean checkout can report missing generated Translation resources
+          # before the importer has created them. This pass exists only to build
+          # the cache; the validation pass below must be fully clean.
+          echo "Godot warm-up import exit code: $status"
+          tail -n 80 import-warmup.log || true
+          test "$status" -eq 0
+
+      - name: Validate clean project import
         shell: bash
         run: |
           set -o pipefail
@@ -96,18 +120,17 @@ jobs:
           status=${PIPESTATUS[0]}
           set -e
           echo "$status" > import.status
-          exit 0
 
-      - name: Report import diagnostics
-        shell: bash
-        run: |
-          set -euo pipefail
-          status="$(cat import.status)"
-          echo "Godot project import exit code: $status"
+          echo "Godot validation import exit code: $status"
           grep -Ein 'ERROR|SCRIPT ERROR|Parse Error|failed|cannot|invalid|unsupported' import.log | tail -n 120 || true
           echo "=== import log tail ==="
           tail -n 120 import.log || true
+
           test "$status" -eq 0
+          if grep -Eq '^ERROR:|SCRIPT ERROR:|Parse Error:' import.log; then
+            echo "Unexpected Godot error found after import cache warm-up."
+            exit 1
+          fi
 
       - name: Export Web Portal
         shell: bash
@@ -132,6 +155,10 @@ jobs:
           echo "=== export log tail ==="
           tail -n 180 build-web.log || true
           test "$status" -eq 0
+          if grep -Eq '^ERROR:|SCRIPT ERROR:|Parse Error:' build-web.log; then
+            echo "Godot Web export emitted an error despite exit code 0."
+            exit 1
+          fi
 
       - name: Package compressed Yandex payload
         shell: bash
@@ -205,11 +232,14 @@ jobs:
             build-sizes.txt
             touch-fixes.txt
             ru-localization-runtime.txt
+            web-runtime-fixes.txt
             size-optimization.txt
             yandex-package.txt
             compressed-loader.js
             build-web.log
             build-web.status
+            import-warmup.log
+            import-warmup.status
             import.log
             import.status
             localization-check.txt
