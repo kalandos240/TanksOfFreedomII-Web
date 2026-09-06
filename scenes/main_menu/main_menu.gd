@@ -11,6 +11,7 @@ extends Node3D
 @onready var campaign = $"/root/Campaign"
 @onready var settings = $"/root/Settings"
 @onready var multiplayer_srv = $"/root/Multiplayer"
+@onready var yandex_bridge = $"/root/YandexBridge"
 
 const MENU_TIMEOUT = 0.2
 
@@ -74,6 +75,8 @@ func _intro_finished():
 
 	if self.match_setup.campaign_win:
 		self.reopen_campaign_mission_selection_after_win()
+
+	self.yandex_bridge.game_ready()
 
 func open_picker():
 	self.ui.hide_menu()
