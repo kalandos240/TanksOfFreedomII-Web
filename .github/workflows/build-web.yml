@@ -19,6 +19,7 @@ on:
       - tools/package_yandex_web.py
       - tools/check_localization.py
       - .github/workflows/build-web.yml
+      - .github/workflows/browser-smoke.yml
   workflow_dispatch:
 
 concurrency:
