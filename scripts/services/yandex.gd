@@ -1,9 +1,9 @@
 extends Node
 
 # Yandex Games SDK bridge for the Web portal build.
-# Platform language is used only on the first launch; manual selection persists.
+# Russian is intentionally enabled only after the complete RU translation lands.
 const SDK_WAIT_FRAMES := 600
-const SUPPORTED_AUTO_LOCALES := ["en", "pl", "ru"]
+const SUPPORTED_AUTO_LOCALES := ["en", "pl"]
 
 var sdk_initialized := false
 var platform_language := ""
@@ -104,10 +104,6 @@ func _resume_from_platform() -> void:
 
 
 func _apply_platform_language() -> void:
-	# Do not overwrite a language the player selected on a previous launch.
-	if bool(Settings.get_option("platform_locale_initialized")):
-		return
-
 	var locale = self.platform_language.to_lower()
 	if locale.contains("-"):
 		locale = locale.get_slice("-", 0)
@@ -118,7 +114,6 @@ func _apply_platform_language() -> void:
 		locale = "en"
 
 	Settings.set_option("locale", locale)
-	Settings.set_option("platform_locale_initialized", true)
 
 
 func game_ready() -> void:
