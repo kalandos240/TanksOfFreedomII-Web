@@ -74,6 +74,33 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def file_contains(path: Path, needle: bytes) -> bool:
+    overlap = max(0, len(needle) - 1)
+    tail = b""
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            data = tail + chunk
+            if needle in data:
+                return True
+            tail = data[-overlap:] if overlap else b""
+    return False
+
+
+def validate_web_pck(path: Path) -> None:
+    # A previous Web export silently embedded a stale BPTC HDR remap even though
+    # the HDR source itself was excluded. Chromium then failed during scene load.
+    # Reject desktop-only texture references before compression so CI cannot
+    # produce another false-green portal archive.
+    forbidden = (
+        (b".bptc.ctex", "desktop BPTC texture remap"),
+        (b"kloppenheim_03_4k.hdr", "desktop Kloppenheim HDR reference"),
+    )
+    for needle, label in forbidden:
+        if file_contains(path, needle):
+            raise RuntimeError(f"Web PCK contains forbidden {label}: {needle.decode('ascii')}")
+    print("Validated Web PCK: no desktop BPTC/HDR remaps.")
+
+
 def gzip_file(src: Path, dst: Path) -> tuple[int, int, str]:
     original_hash = sha256(src)
     with src.open("rb") as source, dst.open("wb") as raw_out:
@@ -120,9 +147,14 @@ def main() -> int:
     if not html.is_file():
         raise FileNotFoundError(html)
 
+    pck = root / "index.pck"
+    if not pck.is_file():
+        raise FileNotFoundError(pck)
+    validate_web_pck(pck)
+
     pairs = [
         (root / "index.wasm", root / "index.wasmz"),
-        (root / "index.pck", root / "index.pckz"),
+        (pck, root / "index.pckz"),
     ]
 
     for src, dst in pairs:
