@@ -178,7 +178,12 @@ jobs:
                       }
                   )
               )
-              response_deadline = time.time() + 10
+              # Godot can occupy the browser main thread for tens of seconds
+              # while a large PCK is decompressed and its first resources are
+              # initialized. CDP stays connected, but Runtime.evaluate cannot
+              # answer during that stall. Treat that as startup work, not as an
+              # immediate browser failure.
+              response_deadline = time.time() + 60
               while time.time() < response_deadline:
                   try:
                       message = json.loads(ws.recv())
@@ -224,7 +229,7 @@ jobs:
           })()'''
 
           state = None
-          deadline = time.time() + 100
+          deadline = time.time() + 180
           while time.time() < deadline:
               result = command(
                   "Runtime.evaluate",
@@ -302,6 +307,9 @@ jobs:
               params = event.get("params", {})
               if method == "Runtime.exceptionThrown":
                   hard_events.append(event)
+              elif method == "Runtime.consoleAPICalled":
+                  if params.get("type") in {"error", "assert"}:
+                      hard_events.append(event)
               elif method == "Log.entryAdded":
                   level = (params.get("entry") or {}).get("level")
                   if level == "error":
