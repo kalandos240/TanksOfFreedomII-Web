@@ -1,8 +1,18 @@
 extends Node
 
+# Godot imports *.csv files as translation resources, so FileAccess cannot rely
+# on the original CSV path being present inside an exported PCK. Web builds copy
+# the same source text to *.runtime.txt; editor/dev runs can still fall back to
+# the source CSV files.
 const RU_TRANSLATION_FILES := [
-	"res://assets/translations/common.ru.csv",
-	"res://assets/translations/core.ru.csv",
+	[
+		"res://assets/translations/common.ru.runtime.txt",
+		"res://assets/translations/common.ru.csv",
+	],
+	[
+		"res://assets/translations/core.ru.runtime.txt",
+		"res://assets/translations/core.ru.csv",
+	],
 ]
 
 
@@ -11,14 +21,22 @@ func _ready() -> void:
 	translation.locale = "ru"
 
 	var loaded_messages := 0
-	for path in RU_TRANSLATION_FILES:
-		loaded_messages += _append_csv_translation(translation, path)
+	for candidates in RU_TRANSLATION_FILES:
+		loaded_messages += _append_csv_translation(translation, _find_translation_source(candidates))
 
 	if loaded_messages == 0:
 		push_error("Russian translation runtime loaded no messages.")
 		return
 
 	TranslationServer.add_translation(translation)
+
+
+func _find_translation_source(candidates: Array) -> String:
+	for candidate in candidates:
+		var path := str(candidate)
+		if FileAccess.file_exists(path):
+			return path
+	return str(candidates[0])
 
 
 func _append_csv_translation(translation: Translation, path: String) -> int:
