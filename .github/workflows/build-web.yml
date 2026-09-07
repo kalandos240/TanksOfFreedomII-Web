@@ -27,7 +27,6 @@ concurrency:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   web-export:
@@ -47,7 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           apt-get update
-          apt-get install -y --no-install-recommends python3 zip unzip nodejs gh
+          apt-get install -y --no-install-recommends python3 zip unzip nodejs
 
       - name: Apply native Web touch controls
         shell: bash
@@ -240,15 +239,3 @@ jobs:
             godot-version.txt
           if-no-files-found: warn
           retention-days: 14
-
-      - name: Dispatch browser smoke
-        if: success()
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh workflow run browser-smoke.yml \
-            --ref main \
-            -f build_run_id="${{ github.run_id }}" \
-            -f build_run_number="${{ github.run_number }}"
