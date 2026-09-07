@@ -1,25 +1,13 @@
-[gd_scene load_steps=5 format=3 uid="uid://cry3kqpb8cvim"]
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_5umwj"]
-load_path = "res://.godot/imported/kloppenheim_03_4k.hdr-9393188a22828feb8b70131e4dd3d668.bptc.ctex"
-
-[sub_resource type="PanoramaSkyMaterial" id="PanoramaSkyMaterial_i00vh"]
-panorama = SubResource("CompressedTexture2D_5umwj")
-
-[sub_resource type="Sky" id="1"]
-sky_material = SubResource("PanoramaSkyMaterial_i00vh")
+[gd_scene load_steps=2 format=3 uid="uid://cry3kqpb8cvim"]
 
 [sub_resource type="Environment" id="Environment_gx6lk"]
-background_mode = 2
-sky = SubResource("1")
-sky_custom_fov = 70.0
+background_mode = 1
+background_color = Color(0.16, 0.19, 0.22, 1)
+ambient_light_source = 3
 ambient_light_color = Color(1, 1, 1, 1)
-ambient_light_sky_contribution = 0.2
-reflected_light_source = 1
-tonemap_mode = 3
-tonemap_white = 4.0
-ssao_enabled = true
-ssil_enabled = true
+ambient_light_energy = 0.8
+reflected_light_source = 0
+tonemap_mode = 2
 adjustment_enabled = true
 adjustment_saturation = 1.1
 
