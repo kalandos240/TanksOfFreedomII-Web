@@ -103,13 +103,25 @@ adjustment_saturation = 1.05
 def exclude_hdr_from_export() -> None:
     path = "export_presets.cfg"
     text = read(path)
-    old = 'exclude_filter="docs/*,scripts/services/online/*"'
-    new = 'exclude_filter="docs/*,scripts/services/online/*,assets/kloppenheim_03_4k.hdr"'
-    if new in text:
+    target = "assets/kloppenheim_03_4k.hdr"
+    lines = text.splitlines(keepends=True)
+
+    for index, line in enumerate(lines):
+        stripped = line.rstrip("\r\n")
+        if not stripped.startswith('exclude_filter="') or not stripped.endswith('"'):
+            continue
+
+        value = stripped[len('exclude_filter="'):-1]
+        filters = [item for item in value.split(",") if item]
+        if target not in filters:
+            filters.append(target)
+
+        newline = "\n" if line.endswith("\n") else ""
+        lines[index] = 'exclude_filter="' + ",".join(filters) + '"' + newline
+        write(path, "".join(lines))
         return
-    if old not in text:
-        raise RuntimeError("Web export exclude_filter anchor not found")
-    write(path, text.replace(old, new, 1))
+
+    raise RuntimeError("Web export exclude_filter entry not found")
 
 
 def main() -> int:
