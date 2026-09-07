@@ -89,14 +89,32 @@ func _sync_platform_pause_state() -> void:
 \tif not self.sdk_initialized:
 \t\treturn
 
-\tvar platform_paused = bool(JavaScriptBridge.eval("Boolean(window.tofYandex && window.tofYandex.platformPaused)"))
-\tif platform_paused == self._platform_paused:
-\t\treturn
+\t# SDK events can arrive while Godot is still loading. The HTML bridge keeps
+\t# an ordered queue so an early pause followed by resume is not collapsed
+\t# into only the final boolean state before this autoload begins processing.
+\tvar events_json = str(JavaScriptBridge.eval("(function(){var s=window.tofYandex;if(!s||!Array.isArray(s.platformEvents)){return '[]';}return JSON.stringify(s.platformEvents.splice(0,s.platformEvents.length));})()"))
+\tvar events = JSON.parse_string(events_json)
+\tif typeof(events) == TYPE_ARRAY:
+\t\tfor event in events:
+\t\t\tself._apply_platform_event(str(event))
 
-\tself._platform_paused = platform_paused
-\tif platform_paused:
+\t# Reconcile against the authoritative final state as a safety net in case a
+\t# browser/runtime drops the queue or the bridge is injected by an older page.
+\tvar platform_paused = bool(JavaScriptBridge.eval("Boolean(window.tofYandex && window.tofYandex.platformPaused)"))
+\tif platform_paused != self._platform_paused:
+\t\tself._apply_platform_event("pause" if platform_paused else "resume")
+
+
+func _apply_platform_event(event: String) -> void:
+\tif event == "pause":
+\t\tif self._platform_paused:
+\t\t\treturn
+\t\tself._platform_paused = true
 \t\tself._pause_from_platform()
-\telse:
+\telif event == "resume":
+\t\tif not self._platform_paused:
+\t\t\treturn
+\t\tself._platform_paused = false
 \t\tself._resume_from_platform()
 
 
@@ -199,6 +217,7 @@ def patch_export_head() -> None:
     lang: "",
     gameReadySent: false,
     platformPaused: false,
+    platformEvents: [],
     godotPauseApplied: false,
     godotTreePausedAfterPause: null,
     godotResumeApplied: false,
@@ -215,6 +234,13 @@ def patch_export_head() -> None:
     }
   };
 
+  state.queuePlatformEvent = function (name) {
+    state.platformEvents.push(name);
+    if (state.platformEvents.length > 32) {
+      state.platformEvents.shift();
+    }
+  };
+
   if (typeof YaGames === "undefined") {
     state.failed = true;
     return;
@@ -228,9 +254,11 @@ def patch_export_head() -> None:
     if (typeof ysdk.on === "function") {
       ysdk.on("game_api_pause", function () {
         state.platformPaused = true;
+        state.queuePlatformEvent("pause");
       });
       ysdk.on("game_api_resume", function () {
         state.platformPaused = false;
+        state.queuePlatformEvent("resume");
       });
     }
 
