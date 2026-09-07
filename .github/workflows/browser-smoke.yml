@@ -105,10 +105,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! command -v xvfb-run >/dev/null 2>&1; then
-            sudo apt-get update -qq
-            sudo apt-get install -y xvfb
-          fi
           python3 -m pip install --disable-pip-version-check --quiet websocket-client
 
           cat > browser_probe.py <<'PY'
@@ -355,7 +351,8 @@ jobs:
           "$chrome" --version | tee browser-version.txt
 
           rm -rf "$RUNNER_TEMP/tof-browser-profile"
-          xvfb-run -a "$chrome" \
+          "$chrome" \
+            --headless=new \
             --no-sandbox \
             --disable-dev-shm-usage \
             --enable-webgl \
@@ -363,9 +360,12 @@ jobs:
             --ignore-gpu-blocklist \
             --use-gl=angle \
             --use-angle=swiftshader \
+            --remote-debugging-address=127.0.0.1 \
             --remote-debugging-port=9222 \
             --remote-allow-origins='*' \
             --user-data-dir="$RUNNER_TEMP/tof-browser-profile" \
+            --no-first-run \
+            --no-default-browser-check \
             http://127.0.0.1:8765/index.html \
             > smoke-chrome.out 2> smoke-chrome.log &
           echo $! > chrome-launcher.pid
