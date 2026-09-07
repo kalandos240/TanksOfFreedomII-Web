@@ -6,13 +6,43 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TILE_CAM = ROOT / "scenes/map_editor/tile_cam.tscn"
+DEFAULT_ENV = ROOT / "assets/default_env.tres"
+FORBIDDEN = ("kloppenheim_03_4k.hdr", ".bptc.ctex")
+
+
+def contains_desktop_texture(text: str) -> bool:
+    return any(token in text for token in FORBIDDEN)
+
+
+def patch_default_environment() -> None:
+    text = DEFAULT_ENV.read_text(encoding="utf-8")
+    if not contains_desktop_texture(text):
+        print("Default environment is already Web-safe.")
+        return
+
+    safe = '''[gd_resource type="Environment" format=3 uid="uid://bdfocgrybgkli"]
+
+[resource]
+background_mode = 1
+background_color = Color(0.16, 0.19, 0.22, 1)
+ambient_light_source = 3
+ambient_light_color = Color(1, 1, 1, 1)
+ambient_light_energy = 0.8
+reflected_light_source = 0
+tonemap_mode = 2
+adjustment_enabled = true
+adjustment_saturation = 1.05
+'''
+    if contains_desktop_texture(safe):
+        raise RuntimeError("Desktop HDR/BPTC reference survived default environment Web patch")
+    DEFAULT_ENV.write_text(safe, encoding="utf-8", newline="\n")
+    print("Replaced default HDR environment with Web-safe environment.")
 
 
 def patch_tile_cam_environment() -> None:
     text = TILE_CAM.read_text(encoding="utf-8")
-    forbidden = ("kloppenheim_03_4k.hdr", ".bptc.ctex")
 
-    if not any(token in text for token in forbidden):
+    if not contains_desktop_texture(text):
         print("Map editor tile camera environment is already Web-safe.")
         return
 
@@ -41,7 +71,7 @@ adjustment_saturation = 1.1
 '''
 
     patched = safe_environment + text[text.index(marker):]
-    if any(token in patched for token in forbidden):
+    if contains_desktop_texture(patched):
         raise RuntimeError("Desktop HDR/BPTC reference survived tile_cam Web patch")
 
     TILE_CAM.write_text(patched, encoding="utf-8", newline="\n")
@@ -49,6 +79,7 @@ adjustment_saturation = 1.1
 
 
 def main() -> None:
+    patch_default_environment()
     patch_tile_cam_environment()
 
 
