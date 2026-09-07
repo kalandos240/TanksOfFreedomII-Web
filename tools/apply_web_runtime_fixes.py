@@ -66,6 +66,14 @@ def patch_web_export_texture_profile() -> None:
             raise RuntimeError("Russian CSV export filter is missing")
         text = text.replace(csv_filter, f"{csv_filter},{runtime_filter}", 1)
 
+    # The 4K desktop panorama is not used by the Web environment and is not a
+    # valid WebGL2 payload. Keep both historical upstream locations excluded in
+    # case a future upstream sync restores either one.
+    root_hdr = "assets/kloppenheim_03_4k.hdr"
+    legacy_hdr = "assets/terrain/sky/kloppenheim_03_4k.hdr"
+    if root_hdr in text and legacy_hdr not in text:
+        text = text.replace(root_hdr, f"{root_hdr},{legacy_hdr}", 1)
+
     write(path, text)
 
 
@@ -79,31 +87,49 @@ def write_ru_runtime_sources() -> None:
         write(runtime, read(source))
 
 
-def patch_hdr_texture_import() -> None:
-    path = "assets/kloppenheim_03_4k.hdr.import"
-    text = read(path)
-    base = "res://.godot/imported/kloppenheim_03_4k.hdr-9393188a22828feb8b70131e4dd3d668"
+def remove_desktop_hdr_assets() -> None:
+    # The Web scene graph uses assets/default_env.tres and does not need the
+    # Kloppenheim 4K panorama. Godot 4.4 can regenerate its desktop import as a
+    # BPTC-only .ctex while exporting, even when the source HDR itself is
+    # excluded. That leaves a stale remap inside the PCK and crashes WebGL2 at
+    # runtime. Remove the source + import metadata before Godot scans the Web
+    # project so no BPTC remap can be generated or embedded.
+    needle = "kloppenheim_03_4k.hdr"
+    unexpected_refs: list[str] = []
+    for base in ("scenes", "scripts", "assets"):
+        root = ROOT / base
+        if not root.exists():
+            continue
+        for candidate in root.rglob("*"):
+            if not candidate.is_file() or candidate.suffix.lower() not in {".tscn", ".tres", ".gd"}:
+                continue
+            try:
+                text = candidate.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            if needle in text:
+                unexpected_refs.append(candidate.relative_to(ROOT).as_posix())
 
-    # ETC2 cannot encode HDR textures. With HDR VRAM compression disabled,
-    # Godot 4.4 falls back to a portable RGBE9995 texture and writes a regular
-    # .ctex instead of a BPTC-only .bptc.ctex platform variant.
-    text = text.replace(f'path.bptc="{base}.bptc.ctex"', f'path="{base}.ctex"', 1)
-    text = text.replace(
-        '"imported_formats": ["s3tc_bptc"],',
-        '"imported_formats": ["etc2_astc"],',
-        1,
-    )
-    text = text.replace(
-        f'dest_files=["{base}.bptc.ctex"]',
-        f'dest_files=["{base}.ctex"]',
-        1,
-    )
-    text = text.replace("compress/hdr_compression=1", "compress/hdr_compression=0", 1)
+    if unexpected_refs:
+        joined = ", ".join(sorted(unexpected_refs))
+        raise RuntimeError(f"Desktop HDR is still referenced by Web resources: {joined}")
 
-    if f'path="{base}.ctex"' not in text or "compress/hdr_compression=0" not in text:
-        raise RuntimeError("Failed to configure Web-safe HDR import")
+    removed: list[str] = []
+    for rel in (
+        "assets/kloppenheim_03_4k.hdr",
+        "assets/kloppenheim_03_4k.hdr.import",
+        "assets/terrain/sky/kloppenheim_03_4k.hdr",
+        "assets/terrain/sky/kloppenheim_03_4k.hdr.import",
+    ):
+        target = ROOT / rel
+        if target.exists():
+            target.unlink()
+            removed.append(rel)
 
-    write(path, text)
+    if removed:
+        print("Removed desktop-only HDR assets: " + ", ".join(removed))
+    else:
+        print("Desktop-only HDR assets already absent.")
 
 
 def patch_browser_fullscreen() -> None:
@@ -181,7 +207,7 @@ def main() -> None:
     patch_web_texture_imports()
     patch_web_export_texture_profile()
     write_ru_runtime_sources()
-    patch_hdr_texture_import()
+    remove_desktop_hdr_assets()
     patch_browser_fullscreen()
     patch_audio_focus()
     patch_missing_reflection_materials()
