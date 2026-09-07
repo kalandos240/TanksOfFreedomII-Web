@@ -51,14 +51,32 @@ func _sync_platform_pause_state() -> void:
 	if not self.sdk_initialized:
 		return
 
-	var platform_paused = bool(JavaScriptBridge.eval("Boolean(window.tofYandex && window.tofYandex.platformPaused)"))
-	if platform_paused == self._platform_paused:
-		return
+	# SDK events can arrive while Godot is still loading. The HTML bridge keeps
+	# an ordered queue so an early pause followed by resume is not collapsed
+	# into only the final boolean state before this autoload begins processing.
+	var events_json = str(JavaScriptBridge.eval("(function(){var s=window.tofYandex;if(!s||!Array.isArray(s.platformEvents)){return '[]';}return JSON.stringify(s.platformEvents.splice(0,s.platformEvents.length));})()"))
+	var events = JSON.parse_string(events_json)
+	if typeof(events) == TYPE_ARRAY:
+		for event in events:
+			self._apply_platform_event(str(event))
 
-	self._platform_paused = platform_paused
-	if platform_paused:
+	# Reconcile against the authoritative final state as a safety net in case a
+	# browser/runtime drops the queue or the bridge is injected by an older page.
+	var platform_paused = bool(JavaScriptBridge.eval("Boolean(window.tofYandex && window.tofYandex.platformPaused)"))
+	if platform_paused != self._platform_paused:
+		self._apply_platform_event("pause" if platform_paused else "resume")
+
+
+func _apply_platform_event(event: String) -> void:
+	if event == "pause":
+		if self._platform_paused:
+			return
+		self._platform_paused = true
 		self._pause_from_platform()
-	else:
+	elif event == "resume":
+		if not self._platform_paused:
+			return
+		self._platform_paused = false
 		self._resume_from_platform()
 
 
