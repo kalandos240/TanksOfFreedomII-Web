@@ -28,14 +28,80 @@ def patch_web_texture_imports() -> None:
     path = "project.godot"
     text = read(path)
 
-    if "textures/vram_compression/import_etc2_astc=true" not in text:
+    etc2_setting = "textures/vram_compression/import_etc2_astc=true\n"
+    s3tc_on = "textures/vram_compression/import_s3tc_bptc=true\n"
+    s3tc_off = "textures/vram_compression/import_s3tc_bptc=false\n"
+
+    if etc2_setting not in text:
         anchor = 'renderer/rendering_method.web="gl_compatibility"\n'
-        addition = (
-            anchor
-            + "textures/vram_compression/import_etc2_astc=true\n"
-            + "textures/vram_compression/import_s3tc_bptc=true\n"
-        )
-        text = replace_once(text, anchor, addition, "Web texture import formats")
+        addition = anchor + etc2_setting + s3tc_off
+        text = replace_once(text, anchor, addition, "Web ETC2 texture imports")
+    elif s3tc_on in text:
+        text = text.replace(s3tc_on, s3tc_off, 1)
+    elif s3tc_off not in text:
+        text = text.replace(etc2_setting, etc2_setting + s3tc_off, 1)
+
+    write(path, text)
+
+
+def patch_web_export_texture_profile() -> None:
+    path = "export_presets.cfg"
+    text = read(path)
+
+    # WebGL2 has a portable ETC2 path. Do not package desktop S3TC/BPTC
+    # variants into the portal build; Chromium/SwiftShader can advertise a
+    # partial desktop compression path and then reject individual mip levels.
+    text = text.replace(
+        "vram_texture_compression/for_desktop=true",
+        "vram_texture_compression/for_desktop=false",
+        1,
+    )
+    if "vram_texture_compression/for_mobile=true" not in text:
+        raise RuntimeError("Web ETC2 export profile is missing mobile texture compression")
+
+    runtime_filter = "assets/translations/*.ru.runtime.txt"
+    if runtime_filter not in text:
+        csv_filter = "assets/translations/*.ru.csv"
+        if csv_filter not in text:
+            raise RuntimeError("Russian CSV export filter is missing")
+        text = text.replace(csv_filter, f"{csv_filter},{runtime_filter}", 1)
+
+    write(path, text)
+
+
+def write_ru_runtime_sources() -> None:
+    # Translation CSV files are imported by Godot and the original source path
+    # is not guaranteed to exist inside an exported PCK. Keep byte-equivalent
+    # raw text copies under an unimported extension for FileAccess at runtime.
+    for stem in ("common", "core"):
+        source = f"assets/translations/{stem}.ru.csv"
+        runtime = f"assets/translations/{stem}.ru.runtime.txt"
+        write(runtime, read(source))
+
+
+def patch_hdr_texture_import() -> None:
+    path = "assets/kloppenheim_03_4k.hdr.import"
+    text = read(path)
+    base = "res://.godot/imported/kloppenheim_03_4k.hdr-9393188a22828feb8b70131e4dd3d668"
+
+    # ETC2 cannot encode HDR textures. With HDR VRAM compression disabled,
+    # Godot 4.4 falls back to a portable RGBE9995 texture and writes a regular
+    # .ctex instead of a BPTC-only .bptc.ctex platform variant.
+    text = text.replace(f'path.bptc="{base}.bptc.ctex"', f'path="{base}.ctex"', 1)
+    text = text.replace(
+        '"imported_formats": ["s3tc_bptc"],',
+        '"imported_formats": ["etc2_astc"],',
+        1,
+    )
+    text = text.replace(
+        f'dest_files=["{base}.bptc.ctex"]',
+        f'dest_files=["{base}.ctex"]',
+        1,
+    )
+    text = text.replace("compress/hdr_compression=1", "compress/hdr_compression=0", 1)
+
+    if f'path="{base}.ctex"' not in text or "compress/hdr_compression=0" not in text:
+        raise RuntimeError("Failed to configure Web-safe HDR import")
 
     write(path, text)
 
@@ -113,6 +179,9 @@ map_Kd {texture}
 
 def main() -> None:
     patch_web_texture_imports()
+    patch_web_export_texture_profile()
+    write_ru_runtime_sources()
+    patch_hdr_texture_import()
     patch_browser_fullscreen()
     patch_audio_focus()
     patch_missing_reflection_materials()
