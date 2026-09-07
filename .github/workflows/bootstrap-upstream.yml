@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/bootstrap-upstream.yml
       - tools/apply_web_port.py
+      - tools/apply_web_environment_fixes.py
       - tools/apply_web_runtime_fixes.py
       - tools/apply_web_touch_fixes.py
       - tools/apply_web_ui_hardening.py
@@ -59,6 +60,7 @@ jobs:
           set -euo pipefail
           python3 -m py_compile \
             tools/apply_web_port.py \
+            tools/apply_web_environment_fixes.py \
             tools/apply_web_runtime_fixes.py \
             tools/apply_web_touch_fixes.py \
             tools/apply_web_ui_hardening.py \
@@ -68,11 +70,15 @@ jobs:
             tools/package_yandex_web.py \
             tools/check_localization.py
           python3 tools/apply_web_port.py
+          # Runtime fixes expect the RU export filter/runtime sources to exist.
+          python3 tools/apply_ru_localization.py
+          # Upstream tile_cam contains a cached desktop BPTC/HDR environment.
+          # Replace it before runtime validation removes desktop HDR assets.
+          python3 tools/apply_web_environment_fixes.py
           python3 tools/apply_web_runtime_fixes.py
           python3 tools/apply_web_touch_fixes.py
           python3 tools/apply_web_ui_hardening.py
           python3 tools/apply_yandex_port.py
-          python3 tools/apply_ru_localization.py
           python3 tools/apply_web_size_optimizations.py
 
           # The entire core/common UI is already release-gated in all three
