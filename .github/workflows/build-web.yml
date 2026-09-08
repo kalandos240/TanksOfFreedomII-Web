@@ -12,6 +12,7 @@ on:
       - localization/**
       - tools/apply_web_port.py
       - tools/apply_web_environment_fixes.py
+      - tools/apply_web_font_fixes.py
       - tools/apply_web_runtime_fixes.py
       - tools/apply_web_touch_fixes.py
       - tools/apply_yandex_port.py
@@ -49,7 +50,7 @@ jobs:
         run: |
           set -euo pipefail
           apt-get update
-          apt-get install -y --no-install-recommends python3 zip unzip nodejs curl
+          apt-get install -y --no-install-recommends python3 zip unzip nodejs curl fonts-noto-core
 
       - name: Apply native Web touch controls
         shell: bash
@@ -70,6 +71,16 @@ jobs:
           ! grep -Fq 'common.ru.ru.translation' project.godot
           ! grep -Fq 'core.ru.ru.translation' project.godot
           grep -Fq 'assets/translations/*.ru.csv' export_presets.cfg
+
+      - name: Apply embedded Cyrillic Web font
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/apply_web_font_fixes.py
+          python3 tools/apply_web_font_fixes.py | tee web-font-fixes.txt
+
+          test -s assets/fonts/ttf/tof_web_cyrillic.ttf
+          grep -Fq 'tof_web_cyrillic.ttf' assets/fonts/courier.tres
 
       - name: Apply Web-safe environment fixes
         shell: bash
@@ -237,6 +248,7 @@ jobs:
             build-sizes.txt
             touch-fixes.txt
             ru-localization-runtime.txt
+            web-font-fixes.txt
             web-environment-fixes.txt
             web-runtime-fixes.txt
             size-optimization.txt
