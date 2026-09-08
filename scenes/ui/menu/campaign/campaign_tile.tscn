@@ -2,7 +2,7 @@
 
 [ext_resource type="Texture2D" uid="uid://dlkd6uhej4jjt" path="res://assets/gui/campaign/campaign_tile_pressed.png" id="2"]
 [ext_resource type="Texture2D" uid="uid://4ccwqkvp01tf" path="res://assets/gui/menu/backgrounds/sub_panel.png" id="2_m0iv7"]
-[ext_resource type="FontFile" uid="uid://dkpcsi5rudp7j" path="res://assets/fonts/ttf/courier.ttf" id="2_nb4uq"]
+[ext_resource type="FontFile" uid="uid://btstgc45ggura" path="res://assets/fonts/courier.tres" id="2_nb4uq"]
 [ext_resource type="Texture2D" uid="uid://dwjs5gt4qkxu2" path="res://assets/gui/campaign/campaign_tile_focused.png" id="3"]
 [ext_resource type="Texture2D" uid="uid://bplir5a6wkccs" path="res://assets/gui/campaign/campaign_tile_disabled.png" id="4"]
 [ext_resource type="Script" uid="uid://2hq4s0ix5u8y" path="res://scenes/ui/menu/campaign/campaign_tile.gd" id="6"]

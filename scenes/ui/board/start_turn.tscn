@@ -7,7 +7,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/icons/nations/green.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/ui/icons/nations/red.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://scenes/ui/icons/nations/black.tscn" id="7"]
-[ext_resource type="FontFile" uid="uid://dkpcsi5rudp7j" path="res://assets/fonts/ttf/courier.ttf" id="8_a6ihg"]
+[ext_resource type="FontFile" uid="uid://btstgc45ggura" path="res://assets/fonts/courier.tres" id="8_a6ihg"]
 
 [sub_resource type="Animation" id="2"]
 length = 0.001

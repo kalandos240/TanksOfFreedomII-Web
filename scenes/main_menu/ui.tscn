@@ -12,7 +12,7 @@
 [ext_resource type="PackedScene" uid="uid://b61jtis2h2knb" path="res://scenes/ui/menu/campaign/campaign_mission.tscn" id="10"]
 [ext_resource type="PackedScene" uid="uid://deovpfof2ipgn" path="res://scenes/ui/menu/controls/controls.tscn" id="11"]
 [ext_resource type="PackedScene" uid="uid://4fm2h6kocq46" path="res://scenes/ui/save/saves.tscn" id="12"]
-[ext_resource type="FontFile" uid="uid://dkpcsi5rudp7j" path="res://assets/fonts/ttf/courier.ttf" id="12_3ecm1"]
+[ext_resource type="FontFile" uid="uid://btstgc45ggura" path="res://assets/fonts/courier.tres" id="12_3ecm1"]
 [ext_resource type="PackedScene" uid="uid://d10shqx6iv5t7" path="res://scenes/ui/online/online.tscn" id="13"]
 [ext_resource type="PackedScene" uid="uid://guehs06rsfa1" path="res://scenes/ui/online/lobby.tscn" id="15_de4w4"]
 [ext_resource type="PackedScene" uid="uid://b8donvamyojma" path="res://scenes/ui/multiplayer/multiplayer.tscn" id="15_tnnbm"]

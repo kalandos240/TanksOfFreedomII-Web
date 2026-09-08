@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dfcx61utlwatd" path="res://scenes/ui/board/story_dialog.gd" id="1"]
 [ext_resource type="PackedScene" uid="uid://cdr6c4oy51qxv" path="res://scenes/ui/board/actor_view.tscn" id="2"]
-[ext_resource type="FontFile" uid="uid://dkpcsi5rudp7j" path="res://assets/fonts/ttf/courier.ttf" id="2_54pq6"]
+[ext_resource type="FontFile" uid="uid://btstgc45ggura" path="res://assets/fonts/courier.tres" id="2_54pq6"]
 [ext_resource type="Texture2D" uid="uid://thnrfs1tirjj" path="res://assets/gui/menu/backgrounds/main_panel.png" id="2_ofwar"]
 [ext_resource type="FontFile" uid="uid://btstgc45ggura" path="res://assets/fonts/courier.tres" id="3_hrwt2"]
 [ext_resource type="Texture2D" uid="uid://cat1jloyg2wym" path="res://assets/gui/menu/buttons/buttonMed_brown.png" id="5_p35sh"]

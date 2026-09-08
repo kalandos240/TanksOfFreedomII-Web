@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://dlmv2mhpe26s3"]
 
 [ext_resource type="Theme" path="res://assets/gui/ui_theme.tres" id="1_7qiku"]
-[ext_resource type="FontFile" uid="uid://dkpcsi5rudp7j" path="res://assets/fonts/ttf/courier.ttf" id="2_j18ja"]
+[ext_resource type="FontFile" uid="uid://btstgc45ggura" path="res://assets/fonts/courier.tres" id="2_j18ja"]
 
 [node name="ui_multiplayer" type="Control"]
 layout_mode = 3

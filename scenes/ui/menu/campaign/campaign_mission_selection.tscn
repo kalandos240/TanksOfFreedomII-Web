@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://thnrfs1tirjj" path="res://assets/gui/menu/backgrounds/main_panel.png" id="2_es55k"]
 [ext_resource type="Texture2D" uid="uid://deeked66umgj" path="res://assets/gui/campaign/dike_continent.png" id="3"]
 [ext_resource type="Texture2D" uid="uid://dqt600ejx5uaj" path="res://assets/gui/menu/backgrounds/map_panel.png" id="3_1vyoc"]
-[ext_resource type="FontFile" uid="uid://dkpcsi5rudp7j" path="res://assets/fonts/ttf/courier.ttf" id="3_4d13j"]
+[ext_resource type="FontFile" uid="uid://btstgc45ggura" path="res://assets/fonts/courier.tres" id="3_4d13j"]
 [ext_resource type="PackedScene" uid="uid://shs741dswr0v" path="res://scenes/ui/icons/arrow_left.tscn" id="4"]
 [ext_resource type="PackedScene" uid="uid://b2gykaq7wpo1q" path="res://scenes/ui/icons/arrow_right.tscn" id="5"]
 [ext_resource type="Texture2D" uid="uid://cat1jloyg2wym" path="res://assets/gui/menu/buttons/buttonMed_brown.png" id="5_if6ob"]

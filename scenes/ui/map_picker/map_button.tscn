@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://c4tk8tsy3k8pk" path="res://scenes/ui/map_picker/map_button.gd" id="1"]
 [ext_resource type="Texture2D" uid="uid://bfuw0w5lh2kil" path="res://assets/gui/picker/picker_position_focused.png" id="3"]
 [ext_resource type="Texture2D" uid="uid://dij5afga02x3y" path="res://assets/gui/picker/picker_position_pressed.png" id="4"]
-[ext_resource type="FontFile" uid="uid://dkpcsi5rudp7j" path="res://assets/fonts/ttf/courier.ttf" id="4_k8udo"]
+[ext_resource type="FontFile" uid="uid://btstgc45ggura" path="res://assets/fonts/courier.tres" id="4_k8udo"]
 
 [node name="map0" type="TextureButton"]
 offset_right = 650.0

@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3 uid="uid://crv1ageml0d4g"]
 
-[ext_resource type="FontFile" uid="uid://dkpcsi5rudp7j" path="res://assets/fonts/ttf/courier.ttf" id="1_ubwp4"]
+[ext_resource type="FontFile" uid="uid://btstgc45ggura" path="res://assets/fonts/courier.tres" id="1_ubwp4"]
 [ext_resource type="Texture2D" uid="uid://bpunwi45xf0cx" path="res://assets/gui/icons/controls/tilemap_packed.png" id="2"]
 
 [node name="game" type="Control"]

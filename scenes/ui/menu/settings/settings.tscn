@@ -1,7 +1,7 @@
 [gd_scene load_steps=18 format=3 uid="uid://b6crhl6g0ory"]
 
 [ext_resource type="Script" uid="uid://blnc0p7t7hhb2" path="res://scenes/ui/menu/settings/settings.gd" id="1"]
-[ext_resource type="FontFile" uid="uid://dkpcsi5rudp7j" path="res://assets/fonts/ttf/courier.ttf" id="2_6psbf"]
+[ext_resource type="FontFile" uid="uid://btstgc45ggura" path="res://assets/fonts/courier.tres" id="2_6psbf"]
 [ext_resource type="Texture2D" uid="uid://thnrfs1tirjj" path="res://assets/gui/menu/backgrounds/main_panel.png" id="2_i5u15"]
 [ext_resource type="PackedScene" uid="uid://cocnl04cpm23o" path="res://scenes/ui/menu/settings/settings_gameplay.tscn" id="3"]
 [ext_resource type="PackedScene" uid="uid://dvtv5e3to0um5" path="res://scenes/ui/menu/settings/settings_general.tscn" id="4"]
