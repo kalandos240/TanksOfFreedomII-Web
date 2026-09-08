@@ -7,6 +7,7 @@ on:
       - .github/workflows/bootstrap-upstream.yml
       - tools/apply_web_port.py
       - tools/apply_web_environment_fixes.py
+      - tools/apply_web_font_fixes.py
       - tools/apply_web_runtime_fixes.py
       - tools/apply_web_touch_fixes.py
       - tools/apply_web_ui_hardening.py
@@ -33,6 +34,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Install deterministic Web font dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-noto-core
 
       - name: Import pinned Tanks of Freedom II source
         env:
@@ -61,6 +69,7 @@ jobs:
           python3 -m py_compile \
             tools/apply_web_port.py \
             tools/apply_web_environment_fixes.py \
+            tools/apply_web_font_fixes.py \
             tools/apply_web_runtime_fixes.py \
             tools/apply_web_touch_fixes.py \
             tools/apply_web_ui_hardening.py \
@@ -72,6 +81,11 @@ jobs:
           python3 tools/apply_web_port.py
           # Runtime fixes expect the RU export filter/runtime sources to exist.
           python3 tools/apply_ru_localization.py
+          # Web builds cannot depend on desktop/browser system fonts. Embed a
+          # deterministic Cyrillic-capable fallback and redirect raw Courier refs.
+          python3 tools/apply_web_font_fixes.py
+          test -s assets/fonts/ttf/tof_web_cyrillic.ttf
+          grep -Fq 'tof_web_cyrillic.ttf' assets/fonts/courier.tres
           # Upstream tile_cam contains a cached desktop BPTC/HDR environment.
           # Replace it before runtime validation removes desktop HDR assets.
           python3 tools/apply_web_environment_fixes.py
