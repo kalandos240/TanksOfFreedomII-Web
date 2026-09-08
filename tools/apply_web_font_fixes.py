@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 
@@ -11,7 +12,9 @@ FONT_SOURCE_CANDIDATES = (
 )
 WEB_FONT = ROOT / "assets/fonts/ttf/tof_web_cyrillic.ttf"
 PRIMARY_FONT = "res://assets/fonts/ttf/courier.ttf"
+PRIMARY_UID = "uid://dkpcsi5rudp7j"
 COMPOSITE_FONT = "res://assets/fonts/courier.tres"
+COMPOSITE_UID = "uid://btstgc45ggura"
 WEB_FONT_RES = "res://assets/fonts/ttf/tof_web_cyrillic.ttf"
 
 
@@ -78,6 +81,27 @@ font_data = ExtResource("1")
     print(f"Rebuilt {path_name} with Cyrillic fallback.")
 
 
+def _patch_reference_line(line: str) -> tuple[str, int]:
+    count = line.count(PRIMARY_FONT)
+    if count == 0:
+        return line, 0
+
+    patched = line.replace(PRIMARY_FONT, COMPOSITE_FONT)
+
+    # Godot 4 ext_resource declarations may carry a UID as well as a path.
+    # Leaving courier.ttf's UID next to courier.tres can make the loader resolve
+    # the original TTF and silently bypass our embedded fallback.
+    if patched.lstrip().startswith("[ext_resource "):
+        patched = re.sub(
+            r'uid="uid://[^"]+"',
+            f'uid="{COMPOSITE_UID}"',
+            patched,
+            count=1,
+        )
+
+    return patched, count
+
+
 def patch_direct_courier_references() -> None:
     patched_files = 0
     patched_refs = 0
@@ -91,17 +115,23 @@ def patch_direct_courier_references() -> None:
                 continue
 
             text = path.read_text(encoding="utf-8")
-            count = text.count(PRIMARY_FONT)
-            if count == 0:
+            if PRIMARY_FONT not in text:
                 continue
 
-            path.write_text(
-                text.replace(PRIMARY_FONT, COMPOSITE_FONT),
-                encoding="utf-8",
-                newline="\n",
-            )
+            patched_lines: list[str] = []
+            file_refs = 0
+            for line in text.splitlines(keepends=True):
+                patched_line, count = _patch_reference_line(line)
+                patched_lines.append(patched_line)
+                file_refs += count
+
+            patched = "".join(patched_lines)
+            if text and not text.endswith(("\n", "\r")) and patched.endswith("\n"):
+                patched = patched[:-1]
+
+            path.write_text(patched, encoding="utf-8", newline="\n")
             patched_files += 1
-            patched_refs += count
+            patched_refs += file_refs
 
     print(
         "Redirected direct Courier UI references to the composite font: "
@@ -118,18 +148,30 @@ def validate_font_patch() -> None:
         raise RuntimeError("courier.tres does not reference the embedded Cyrillic fallback")
 
     unresolved: list[str] = []
+    stale_uids: list[str] = []
     for base in (ROOT / "scenes", ROOT / "assets"):
         for path in base.rglob("*"):
             if path.suffix not in {".tscn", ".tres"}:
                 continue
             if path.parent == ROOT / "assets/fonts":
                 continue
-            if PRIMARY_FONT in path.read_text(encoding="utf-8"):
+
+            text = path.read_text(encoding="utf-8")
+            if PRIMARY_FONT in text:
                 unresolved.append(str(path.relative_to(ROOT)))
+
+            for line in text.splitlines():
+                if COMPOSITE_FONT in line and PRIMARY_UID in line:
+                    stale_uids.append(str(path.relative_to(ROOT)))
+                    break
 
     if unresolved:
         raise RuntimeError(
             "Direct Courier references survived Web font patch: " + ", ".join(unresolved[:20])
+        )
+    if stale_uids:
+        raise RuntimeError(
+            "Courier path was redirected but old TTF UID survived: " + ", ".join(stale_uids[:20])
         )
 
 
