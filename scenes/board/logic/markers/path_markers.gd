@@ -6,6 +6,8 @@ var map_obj: Node
 var marker_template = preload("res://scenes/ui/markers/path_marker.tscn")
 
 var created_markers = {}
+var marker_pool = []
+var last_path = []
 
 var rotations = {
 	"n" : 0,
@@ -18,6 +20,7 @@ func _ready():
 	self.map_obj = self.get_node(self.map)
 
 func reset():
+	self.last_path = []
 	self.destroy_markers()
 
 func destroy_markers():
@@ -25,12 +28,16 @@ func destroy_markers():
 	for key in self.created_markers.keys():
 		marker = self.created_markers[key]
 		marker.hide()
-		marker.queue_free()
+		self.marker_pool.append(marker)
 	self.created_markers = {}
 
 
 func draw_path(path):
-	self.reset()
+	if path == self.last_path:
+		return
+
+	self.destroy_markers()
+	self.last_path = path.duplicate()
 
 	for i in path.size():
 		if i < path.size() - 1:
@@ -41,8 +48,14 @@ func draw_path(path):
 
 func place_marker(tile_key):
 	var tile = self.map_obj.model.tiles[tile_key]
-	var new_marker = self.marker_template.instantiate()
-	self.add_child(new_marker)
+	var new_marker
+	if self.marker_pool.is_empty():
+		new_marker = self.marker_template.instantiate()
+		self.add_child(new_marker)
+	else:
+		new_marker = self.marker_pool.pop_back()
+		new_marker.show()
+
 	var placement = self.map_obj.map_to_local(tile.position)
 	new_marker.set_position(placement)
 

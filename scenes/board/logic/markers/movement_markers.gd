@@ -14,6 +14,7 @@ var colour_materials = {
 
 var explored_tiles = {}
 var created_markers = {}
+var marker_pool = []
 var tile_path = {}
 
 func _ready():
@@ -29,7 +30,7 @@ func destroy_markers():
 	for key in self.created_markers.keys():
 		marker = self.created_markers[key]
 		marker.hide()
-		marker.queue_free()
+		self.marker_pool.append(marker)
 	self.created_markers = {}
 
 func show_unit_movement_markers_for_tile(tile, ap_limit):
@@ -75,8 +76,14 @@ func marker_exists(marker_position):
 	return self.created_markers.has(str(marker_position.x) + "_" + str(marker_position.y))
 
 func place_movement_marker(marker_position):
-	var new_marker = self.marker_template.instantiate()
-	self.add_child(new_marker)
+	var new_marker
+	if self.marker_pool.is_empty():
+		new_marker = self.marker_template.instantiate()
+		self.add_child(new_marker)
+	else:
+		new_marker = self.marker_pool.pop_back()
+		new_marker.show()
+
 	var placement = self.map_obj.map_to_local(marker_position)
 	new_marker.set_position(placement)
 

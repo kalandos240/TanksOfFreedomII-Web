@@ -13,6 +13,7 @@ uniform float uv_offset_time_scale = 0.01;
 uniform float uv_offset_amplitude = 0.05;
 
 uniform sampler2D normalmap : hint_normal;
+uniform float normal_strength = 0.35;
 
 float height(vec2 pos, float time) {
     return (amplitude.x * sin(pos.x * frequency.x + time * time_factor.x)) + (amplitude.y * sin(pos.y * frequency.y + time * time_factor.y));
@@ -38,7 +39,8 @@ void fragment() {
     
     ALBEDO = texture(texturemap, texture_uv).rgb;
     
-    NORMAL_MAP = texture(normalmap, base_uv_offset).rgb;
-    //METALLIC = 0.0;
-    //ROUGHNESS = 1.0;
+    vec3 sampled_normal = texture(normalmap, base_uv_offset).rgb;
+    NORMAL_MAP = mix(vec3(0.5, 0.5, 1.0), sampled_normal, normal_strength);
+    METALLIC = 0.0;
+    ROUGHNESS = 0.9;
 }

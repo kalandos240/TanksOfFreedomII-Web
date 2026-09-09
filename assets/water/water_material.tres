@@ -8,13 +8,14 @@
 [resource]
 render_priority = 0
 shader = ExtResource("1")
-shader_parameter/amplitude = Vector2(0.2, 0.1)
-shader_parameter/frequency = Vector2(3, 2.5)
-shader_parameter/time_factor = Vector2(2, 1)
-shader_parameter/texture_scale = Vector2(70, 70)
-shader_parameter/uv_offset_scale = Vector2(0.2, 0.2)
-shader_parameter/uv_offset_time_scale = 0.01
-shader_parameter/uv_offset_amplitude = 0.05
+shader_parameter/amplitude = Vector2(0.06, 0.035)
+shader_parameter/frequency = Vector2(1.5, 1.2)
+shader_parameter/time_factor = Vector2(0.75, 0.55)
+shader_parameter/texture_scale = Vector2(24, 24)
+shader_parameter/uv_offset_scale = Vector2(0.12, 0.12)
+shader_parameter/uv_offset_time_scale = 0.006
+shader_parameter/uv_offset_amplitude = 0.018
+shader_parameter/normal_strength = 0.35
 shader_parameter/texturemap = ExtResource("2")
 shader_parameter/uv_offset_texture = ExtResource("3")
 shader_parameter/normalmap = ExtResource("4")

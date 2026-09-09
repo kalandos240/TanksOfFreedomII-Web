@@ -145,7 +145,7 @@ func hover_tile():
 	if not self.ui.is_panel_open():
 		var tile = self.map.model.get_tile(self.map.tile_box_position)
 
-		if tile != self.last_hover_tile or true:
+		if tile != self.last_hover_tile:
 			self.last_hover_tile = tile
 
 			self.update_tile_highlight(tile)
