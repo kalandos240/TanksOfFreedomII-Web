@@ -150,10 +150,11 @@ func hover_tile():
 
 			self.update_tile_highlight(tile)
 
-			self.path_markers.reset()
 			if self.should_draw_move_path(tile):
 				var path = self.movement_markers.get_path_to_tile(tile)
 				self.path_markers.draw_path(path)
+			else:
+				self.path_markers.reset()
 
 
 func set_up_ui():
