@@ -11,6 +11,8 @@ on:
       - tools/apply_web_runtime_fixes.py
       - tools/apply_web_touch_fixes.py
       - tools/apply_web_ui_hardening.py
+      - tools/apply_web_gameplay_performance_fixes.py
+      - tools/apply_web_visual_fixes.py
       - tools/apply_yandex_port.py
       - tools/apply_ru_localization.py
       - tools/apply_web_size_optimizations.py
@@ -73,6 +75,8 @@ jobs:
             tools/apply_web_runtime_fixes.py \
             tools/apply_web_touch_fixes.py \
             tools/apply_web_ui_hardening.py \
+            tools/apply_web_gameplay_performance_fixes.py \
+            tools/apply_web_visual_fixes.py \
             tools/apply_yandex_port.py \
             tools/apply_ru_localization.py \
             tools/apply_web_size_optimizations.py \
@@ -93,6 +97,10 @@ jobs:
           python3 tools/apply_web_touch_fixes.py
           python3 tools/apply_web_ui_hardening.py
           python3 tools/apply_yandex_port.py
+          # Apply persistent Web-specific gameplay and rendering corrections
+          # after the upstream/import compatibility patches have settled.
+          python3 tools/apply_web_gameplay_performance_fixes.py
+          python3 tools/apply_web_visual_fixes.py
           python3 tools/apply_web_size_optimizations.py
 
           # The entire core/common UI is already release-gated in all three
