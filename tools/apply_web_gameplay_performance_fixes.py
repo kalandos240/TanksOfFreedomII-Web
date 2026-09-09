@@ -27,9 +27,28 @@ def replace_once(path: Path, old: str, new: str, label: str) -> None:
 def patch_board_hover() -> None:
     replace_once(
         BOARD,
-        'if tile != self.last_hover_tile or true:',
-        'if tile != self.last_hover_tile:',
-        "Board hover repeat guard",
+        '''\t\tif tile != self.last_hover_tile or true:
+\t\t\tself.last_hover_tile = tile
+
+\t\t\tself.update_tile_highlight(tile)
+
+\t\t\tself.path_markers.reset()
+\t\t\tif self.should_draw_move_path(tile):
+\t\t\t\tvar path = self.movement_markers.get_path_to_tile(tile)
+\t\t\t\tself.path_markers.draw_path(path)
+''',
+        '''\t\tif tile != self.last_hover_tile:
+\t\t\tself.last_hover_tile = tile
+
+\t\t\tself.update_tile_highlight(tile)
+
+\t\t\tif self.should_draw_move_path(tile):
+\t\t\t\tvar path = self.movement_markers.get_path_to_tile(tile)
+\t\t\t\tself.path_markers.draw_path(path)
+\t\t\telse:
+\t\t\t\tself.path_markers.reset()
+''',
+        "Board hover/path repeat guard",
     )
 
 
