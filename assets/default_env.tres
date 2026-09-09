@@ -9,4 +9,4 @@ ambient_light_energy = 0.8
 reflected_light_source = 0
 tonemap_mode = 2
 adjustment_enabled = true
-adjustment_saturation = 1.05
+adjustment_saturation = 1.0
