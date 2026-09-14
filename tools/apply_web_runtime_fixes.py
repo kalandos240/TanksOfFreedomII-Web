@@ -44,13 +44,29 @@ def patch_web_texture_imports() -> None:
     write(path, text)
 
 
+def _remove_exclude_filter_items(text: str, items: set[str]) -> str:
+    lines = text.splitlines(keepends=True)
+    changed = False
+    for index, line in enumerate(lines):
+        stripped = line.rstrip("\r\n")
+        if not stripped.startswith('exclude_filter="') or not stripped.endswith('"'):
+            continue
+        value = stripped[len('exclude_filter="'):-1]
+        filters = [item for item in value.split(",") if item and item not in items]
+        newline = "\n" if line.endswith("\n") else ""
+        replacement = 'exclude_filter="' + ",".join(filters) + '"' + newline
+        if replacement != line:
+            lines[index] = replacement
+            changed = True
+    return "".join(lines) if changed else text
+
+
 def patch_web_export_texture_profile() -> None:
     path = "export_presets.cfg"
     text = read(path)
 
-    # WebGL2 has a portable ETC2 path. Do not package desktop S3TC/BPTC
-    # variants into the portal build; Chromium/SwiftShader can advertise a
-    # partial desktop compression path and then reject individual mip levels.
+    # WebGL2 uses the portable mobile texture path. This changes only GPU
+    # encoding, not the source artwork/material/environment parameters.
     text = text.replace(
         "vram_texture_compression/for_desktop=true",
         "vram_texture_compression/for_desktop=false",
@@ -66,70 +82,39 @@ def patch_web_export_texture_profile() -> None:
             raise RuntimeError("Russian CSV export filter is missing")
         text = text.replace(csv_filter, f"{csv_filter},{runtime_filter}", 1)
 
-    # The 4K desktop panorama is not used by the Web environment and is not a
-    # valid WebGL2 payload. Keep both historical upstream locations excluded in
-    # case a future upstream sync restores either one.
-    root_hdr = "assets/kloppenheim_03_4k.hdr"
-    legacy_hdr = "assets/terrain/sky/kloppenheim_03_4k.hdr"
-    if root_hdr in text and legacy_hdr not in text:
-        text = text.replace(root_hdr, f"{root_hdr},{legacy_hdr}", 1)
-
+    # Older Web patches excluded the original 4K panorama. Remove those
+    # exclusions: the original HDR must ship so Web can reproduce the desktop
+    # lighting/tonemapping as closely as the Compatibility renderer allows.
+    text = _remove_exclude_filter_items(
+        text,
+        {
+            "assets/kloppenheim_03_4k.hdr",
+            "assets/terrain/sky/kloppenheim_03_4k.hdr",
+        },
+    )
     write(path, text)
 
 
 def write_ru_runtime_sources() -> None:
-    # Translation CSV files are imported by Godot and the original source path
-    # is not guaranteed to exist inside an exported PCK. Keep byte-equivalent
-    # raw text copies under an unimported extension for FileAccess at runtime.
     for stem in ("common", "core"):
         source = f"assets/translations/{stem}.ru.csv"
         runtime = f"assets/translations/{stem}.ru.runtime.txt"
         write(runtime, read(source))
 
 
-def remove_desktop_hdr_assets() -> None:
-    # The Web scene graph uses assets/default_env.tres and does not need the
-    # Kloppenheim 4K panorama. Godot 4.4 can regenerate its desktop import as a
-    # BPTC-only .ctex while exporting, even when the source HDR itself is
-    # excluded. That leaves a stale remap inside the PCK and crashes WebGL2 at
-    # runtime. Remove the source + import metadata before Godot scans the Web
-    # project so no BPTC remap can be generated or embedded.
-    needle = "kloppenheim_03_4k.hdr"
-    unexpected_refs: list[str] = []
-    for base in ("scenes", "scripts", "assets"):
-        root = ROOT / base
-        if not root.exists():
-            continue
-        for candidate in root.rglob("*"):
-            if not candidate.is_file() or candidate.suffix.lower() not in {".tscn", ".tres", ".gd"}:
-                continue
-            try:
-                text = candidate.read_text(encoding="utf-8")
-            except UnicodeDecodeError:
-                continue
-            if needle in text:
-                unexpected_refs.append(candidate.relative_to(ROOT).as_posix())
+def validate_original_hdr_graphics() -> None:
+    hdr = ROOT / "assets/kloppenheim_03_4k.hdr"
+    if not hdr.exists() or hdr.stat().st_size == 0:
+        raise RuntimeError("Original Kloppenheim 4K HDR panorama is missing")
 
-    if unexpected_refs:
-        joined = ", ".join(sorted(unexpected_refs))
-        raise RuntimeError(f"Desktop HDR is still referenced by Web resources: {joined}")
+    for rel in ("assets/default_env.tres", "scenes/map_editor/tile_cam.tscn"):
+        text = read(rel)
+        if "res://assets/kloppenheim_03_4k.hdr" not in text:
+            raise RuntimeError(f"{rel} no longer references the original HDR panorama")
+        if ".bptc.ctex" in text:
+            raise RuntimeError(f"{rel} still contains a desktop-only BPTC cache path")
 
-    removed: list[str] = []
-    for rel in (
-        "assets/kloppenheim_03_4k.hdr",
-        "assets/kloppenheim_03_4k.hdr.import",
-        "assets/terrain/sky/kloppenheim_03_4k.hdr",
-        "assets/terrain/sky/kloppenheim_03_4k.hdr.import",
-    ):
-        target = ROOT / rel
-        if target.exists():
-            target.unlink()
-            removed.append(rel)
-
-    if removed:
-        print("Removed desktop-only HDR assets: " + ", ".join(removed))
-    else:
-        print("Desktop-only HDR assets already absent.")
+    print("Original HDR panorama retained; resources use source-path remapping for Web.")
 
 
 def patch_browser_fullscreen() -> None:
@@ -177,16 +162,13 @@ def patch_audio_focus() -> None:
         "func play(sample_name):\n"
     )
     text = replace_once(text, old_play, new_play, "audio focus notification")
-
     write(path, text)
 
 
 def patch_missing_reflection_materials() -> None:
-    # Upstream contains two river reflection OBJ files that reference MTL files
-    # which are absent from the repository. Godot imports the geometry without
-    # them, but emits hard ERROR lines and the surfaces lose their palette map.
-    # Recreate the deterministic MagicaVoxel material definitions so clean Web
-    # imports are error-free and visually match the neighboring reflection assets.
+    # These two upstream OBJ files reference missing MTL sidecars. Recreating
+    # the palette declarations prevents Godot from dropping their intended
+    # diffuse textures during a clean CI import.
     template = """# MagicaVoxel @ Ephtracy
 
 newmtl palette
@@ -207,11 +189,11 @@ def main() -> None:
     patch_web_texture_imports()
     patch_web_export_texture_profile()
     write_ru_runtime_sources()
-    remove_desktop_hdr_assets()
+    validate_original_hdr_graphics()
     patch_browser_fullscreen()
     patch_audio_focus()
     patch_missing_reflection_materials()
-    print("Applied browser runtime and Web export fixes.")
+    print("Applied browser runtime fixes without downgrading original graphics.")
 
 
 if __name__ == "__main__":
