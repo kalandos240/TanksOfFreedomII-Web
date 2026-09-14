@@ -15,6 +15,9 @@ on:
       - tools/apply_web_font_fixes.py
       - tools/apply_web_runtime_fixes.py
       - tools/apply_web_touch_fixes.py
+      - tools/apply_web_ui_hardening.py
+      - tools/apply_web_gameplay_performance_fixes.py
+      - tools/apply_web_visual_fixes.py
       - tools/apply_yandex_port.py
       - tools/apply_ru_localization.py
       - tools/apply_web_size_optimizations.py
@@ -82,7 +85,7 @@ jobs:
           test -s assets/fonts/ttf/tof_web_cyrillic.ttf
           grep -Fq 'tof_web_cyrillic.ttf' assets/fonts/courier.tres
 
-      - name: Apply Web-safe environment fixes
+      - name: Apply original Web environment mapping
         shell: bash
         run: |
           set -euo pipefail
@@ -121,13 +124,99 @@ jobs:
           fi
           godot --version | tee godot-version.txt
 
+      - name: Prepare original HDR losslessly for Web
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee web-hdr-import.txt
+          import re
+          import shutil
+          import subprocess
+          import tempfile
+          from pathlib import Path
+
+          root = Path.cwd()
+          source = root / "assets/kloppenheim_03_4k.hdr"
+          if not source.is_file() or source.stat().st_size == 0:
+              raise SystemExit("Original Kloppenheim HDR source is missing")
+
+          # Import the exact original HDR in an isolated one-file Godot project.
+          # This avoids the upstream BPTC-only cache remap, which WebGL cannot
+          # load, without changing a single source pixel or environment value.
+          with tempfile.TemporaryDirectory(prefix="tof-hdr-") as tmp_name:
+              tmp = Path(tmp_name)
+              (tmp / "project.godot").write_text(
+                  'config_version=5\n\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n',
+                  encoding="utf-8",
+              )
+              isolated_source = tmp / "original.hdr"
+              shutil.copy2(source, isolated_source)
+
+              proc = subprocess.run(
+                  ["godot", "--headless", "--editor", "--path", str(tmp), "--import"],
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.STDOUT,
+                  text=True,
+                  timeout=120,
+              )
+              print(proc.stdout)
+              if proc.returncode != 0:
+                  raise SystemExit(f"Isolated HDR import failed with exit code {proc.returncode}")
+
+              import_meta = tmp / "original.hdr.import"
+              if not import_meta.is_file():
+                  raise SystemExit("Godot did not generate HDR import metadata")
+              meta = import_meta.read_text(encoding="utf-8")
+              if "compress/mode=0" not in meta:
+                  raise SystemExit("Isolated HDR was not imported losslessly")
+
+              imported = list((tmp / ".godot/imported").glob("original.hdr-*.ctex"))
+              imported = [p for p in imported if not p.name.endswith(".editor.ctex")]
+              if len(imported) != 1:
+                  raise SystemExit(f"Expected one lossless HDR ctex, got: {imported}")
+
+              target_stem = "kloppenheim_03_4k.hdr-9393188a22828feb8b70131e4dd3d668"
+              target_dir = root / ".godot/imported"
+              target_dir.mkdir(parents=True, exist_ok=True)
+              target_ctex = target_dir / f"{target_stem}.ctex"
+              shutil.copy2(imported[0], target_ctex)
+
+              source_md5 = imported[0].with_suffix(".md5")
+              if source_md5.is_file():
+                  shutil.copy2(source_md5, target_dir / f"{target_stem}.md5")
+
+              target_res = f"res://.godot/imported/{target_stem}.ctex"
+              meta = re.sub(r'^uid="[^"]+"$', 'uid="uid://bieopmsruclpo"', meta, flags=re.M)
+              meta = re.sub(r'^path(?:\.[^=]+)?="[^"]+"$', f'path="{target_res}"', meta, flags=re.M)
+              meta = re.sub(r'^source_file="[^"]+"$', 'source_file="res://assets/kloppenheim_03_4k.hdr"', meta, flags=re.M)
+              meta = re.sub(r'^dest_files=\[[^\n]*\]$', f'dest_files=["{target_res}"]', meta, flags=re.M)
+              meta = re.sub(r'^detect_3d/compress_to=\d+$', 'detect_3d/compress_to=0', meta, flags=re.M)
+              meta = re.sub(r'^compress/mode=\d+$', 'compress/mode=0', meta, flags=re.M)
+              meta = meta.replace('"vram_texture": true', '"vram_texture": false')
+              meta = re.sub(r'^"imported_formats": \[[^\n]*\],?\n', '', meta, flags=re.M)
+
+              target_meta = root / "assets/kloppenheim_03_4k.hdr.import"
+              target_meta.write_text(meta, encoding="utf-8", newline="\n")
+
+              if ".bptc.ctex" in meta or ".astc.ctex" in meta:
+                  raise SystemExit("Desktop/mobile VRAM HDR remap survived lossless preparation")
+              if target_res not in meta or not target_ctex.is_file():
+                  raise SystemExit("Lossless HDR remap was not prepared correctly")
+
+              print(f"Prepared original HDR losslessly: {target_ctex} ({target_ctex.stat().st_size} bytes)")
+          PY
+
+          grep -Fq 'compress/mode=0' assets/kloppenheim_03_4k.hdr.import
+          grep -Fq 'path="res://.godot/imported/kloppenheim_03_4k.hdr-9393188a22828feb8b70131e4dd3d668.ctex"' assets/kloppenheim_03_4k.hdr.import
+          test -s .godot/imported/kloppenheim_03_4k.hdr-9393188a22828feb8b70131e4dd3d668.ctex
+
       - name: Warm project cache
         shell: bash
         run: |
           set -o pipefail
           set +e
           # A bounded editor start has proven reliable for this project in Godot
-          # 4.4 CI. Full --import can stall indefinitely in headless containers.
+          # 4.4 CI. Full --import can stall indefinitely in the full project.
           godot --headless --editor --path . --quit 2>&1 | tee import-warmup.log
           status=${PIPESTATUS[0]}
           set -e
@@ -138,9 +227,6 @@ jobs:
           tail -n 100 import-warmup.log || true
           test "$status" -eq 0
 
-          # Godot 4.4 may report only these editor-internal ProgressDialog errors
-          # when --quit interrupts the background scan. Anything project-specific
-          # is still a real failure and must be fixed before export.
           unexpected_errors="$(
             grep -E '^ERROR:|SCRIPT ERROR:|Parse Error:' import-warmup.log \
               | grep -Ev 'progress dialog \(task\)|!tasks\.has\(p_task\)' \
@@ -251,6 +337,7 @@ jobs:
             web-font-fixes.txt
             web-environment-fixes.txt
             web-runtime-fixes.txt
+            web-hdr-import.txt
             size-optimization.txt
             yandex-package.txt
             compressed-loader.js
