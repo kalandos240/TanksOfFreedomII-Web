@@ -20,10 +20,10 @@ var settings = {
 	"hq_cam" : false,
 	"cam_shake" : true,
 	"def_cam_st" : "TOF",
-	"shadows" : false,
+	"shadows" : true,
 	"decorations" : true,
-	"dec_shadows" : false,
-	"msaa": 0.0,
+	"dec_shadows" : true,
+	"msaa": 2.0,
 	"fxaa": false,
 	"vsync": false,
 	"fps": 60.0,
@@ -46,8 +46,8 @@ var settings = {
 	"end_turn_speed": "x1",
 	"show_health": true,
 	"scale_ui": true,
-	"render_scale": 90,
-	"tilt_shift_enabled": false
+	"render_scale": 100,
+	"tilt_shift_enabled": true
 }
 
 
@@ -60,18 +60,18 @@ func _apply_web_profile():
 	if not OS.has_feature("web"):
 		return
 
-	# Portal build: deterministic browser-safe defaults.
-	# Apply after loading saved settings so unsupported values cannot return.
-	self.settings["shadows"] = false
-	self.settings["dec_shadows"] = false
-	self.settings["msaa"] = 0.0
+	# Keep the original desktop visual defaults on Web. Only portal-only
+	# networking/input/timing policy is forced below.
+	self.settings["shadows"] = true
+	self.settings["dec_shadows"] = true
+	self.settings["msaa"] = 2.0
 	self.settings["fxaa"] = false
 	self.settings["vsync"] = false
 	self.settings["fps"] = 60.0
 	self.settings["ips"] = 60.0
 	self.settings["edge_pan"] = false
-	self.settings["tilt_shift_enabled"] = false
-	self.settings["render_scale"] = min(float(self.settings["render_scale"]), 90.0)
+	self.settings["tilt_shift_enabled"] = true
+	self.settings["render_scale"] = 100
 	self.settings["online_domain"] = ""
 	self.settings["online_port"] = 0
 	self.settings["relay_domain"] = ""
@@ -87,14 +87,10 @@ func _coerce_web_option(key, value):
 		return value
 
 	match key:
-		"shadows", "dec_shadows", "fxaa", "vsync", "tilt_shift_enabled", "edge_pan":
+		"edge_pan":
 			return false
-		"msaa":
-			return 0.0
 		"fps", "ips":
 			return min(float(value), 60.0)
-		"render_scale":
-			return min(float(value), 90.0)
 	return value
 
 func load_settings_from_file():
@@ -222,10 +218,10 @@ func _is_steam_deck():
 func _apply_steam_deck_settings():
 	self.settings["fullscreen"] = true
 	self.settings["def_cam_st"] = "TOF"
-	self.settings["shadows"] = false
+	self.settings["shadows"] = true
 	self.settings["decorations"] = true
-	self.settings["dec_shadows"] = false
-	self.settings["msaa"] = 0.0
+	self.settings["dec_shadows"] = true
+	self.settings["msaa"] = 2.0
 	self.settings["fxaa"] = false
 	self.settings["vsync"] = false
 	self.settings["fps"] = 60.0
