@@ -18,6 +18,19 @@ var rotations = {
 
 func _ready():
 	self.map_obj = self.get_node(self.map)
+	if OS.has_feature("web"):
+		self.call_deferred("_prewarm_marker_pool")
+
+func _prewarm_marker_pool():
+	const PREWARM_COUNT = 12
+	const BATCH_SIZE = 4
+	for i in PREWARM_COUNT:
+		var marker = self.marker_template.instantiate()
+		self.add_child(marker)
+		marker.hide()
+		self.marker_pool.append(marker)
+		if (i + 1) % BATCH_SIZE == 0:
+			await self.get_tree().process_frame
 
 func reset():
 	self.last_path = []
