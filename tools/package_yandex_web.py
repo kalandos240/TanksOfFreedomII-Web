@@ -5,6 +5,7 @@ import argparse
 import gzip
 import hashlib
 import shutil
+import subprocess
 from pathlib import Path
 
 FETCH_LOADER = '''\t\t<script data-tof-compressed-loader="1">
@@ -105,9 +106,27 @@ def validate_web_pck(path: Path) -> None:
 
 def gzip_file(src: Path, dst: Path) -> tuple[int, int, str]:
     original_hash = sha256(src)
-    with src.open("rb") as source, dst.open("wb") as raw_out:
-        with gzip.GzipFile(filename="", mode="wb", fileobj=raw_out, compresslevel=9, mtime=0) as compressed:
-            shutil.copyfileobj(source, compressed, length=1024 * 1024)
+
+    # The Yandex package has a strict 100 MB unpacked limit. Zopfli produces a
+    # standard gzip stream, so browser DecompressionStream compatibility and
+    # the decompressed game bytes remain exactly the same; only the transfer
+    # representation is denser. CI installs pigz 2.x, whose level 11 enables
+    # Zopfli. One optimization iteration gives the useful size win without
+    # making portal packaging excessively expensive.
+    pigz = shutil.which("pigz")
+    if pigz is not None:
+        with dst.open("wb") as raw_out:
+            subprocess.run(
+                [pigz, "-11", "-I", "1", "-n", "-c", str(src)],
+                stdout=raw_out,
+                check=True,
+            )
+        print(f"{src.name}: compressed with pigz/Zopfli")
+    else:
+        with src.open("rb") as source, dst.open("wb") as raw_out:
+            with gzip.GzipFile(filename="", mode="wb", fileobj=raw_out, compresslevel=9, mtime=0) as compressed:
+                shutil.copyfileobj(source, compressed, length=1024 * 1024)
+        print(f"{src.name}: pigz unavailable; used deterministic gzip-9 fallback")
 
     roundtrip_hash = hashlib.sha256()
     with gzip.open(dst, "rb") as check:
