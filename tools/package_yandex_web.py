@@ -87,18 +87,20 @@ def file_contains(path: Path, needle: bytes) -> bool:
 
 
 def validate_web_pck(path: Path) -> None:
-    # A previous Web export silently embedded a stale BPTC HDR remap even though
-    # the HDR source itself was excluded. Chromium then failed during scene load.
-    # Reject desktop-only texture references before compression so CI cannot
-    # produce another false-green portal archive.
+    # The original Kloppenheim HDR source path is intentionally serialized into
+    # the Web PCK. CI prepares that exact source as a lossless Web-compatible
+    # .ctex before export, so the source filename itself is not a failure.
+    #
+    # What must never survive is the stale desktop-only BPTC cache remap: that
+    # remap cannot be consumed by the Web renderer and previously caused scene
+    # loading to fail in Chromium.
     forbidden = (
         (b".bptc.ctex", "desktop BPTC texture remap"),
-        (b"kloppenheim_03_4k.hdr", "desktop Kloppenheim HDR reference"),
     )
     for needle, label in forbidden:
         if file_contains(path, needle):
             raise RuntimeError(f"Web PCK contains forbidden {label}: {needle.decode('ascii')}")
-    print("Validated Web PCK: no desktop BPTC/HDR remaps.")
+    print("Validated Web PCK: no desktop BPTC remaps; original HDR source reference is allowed.")
 
 
 def gzip_file(src: Path, dst: Path) -> tuple[int, int, str]:
