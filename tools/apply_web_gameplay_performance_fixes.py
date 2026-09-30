@@ -10,6 +10,9 @@ PATH_MARKERS = ROOT / "scenes/board/logic/markers/path_markers.gd"
 INTERACTION_MARKERS = ROOT / "scenes/board/logic/markers/interaction_markers.gd"
 MAP_TILE = ROOT / "scenes/map/tile.gd"
 AI_PATHFINDER = ROOT / "scenes/board/logic/ai/pathfinder.gd"
+AI_COLLECTOR = ROOT / "scenes/board/logic/ai/collector.gd"
+AI_UNIT_BRAIN = ROOT / "scenes/board/logic/ai/brains/abstract_unit_brain.gd"
+MAP_MODEL = ROOT / "scenes/map/model.gd"
 
 
 def replace_once(path: Path, old: str, new: str, label: str) -> None:
@@ -134,6 +137,277 @@ def patch_cached_tile_keys() -> None:
         "AI pathfinder cached tile keys",
     )
 
+
+
+def patch_ai_entity_snapshot() -> None:
+    replace_once(
+        MAP_MODEL,
+        '''var tiles = {}
+var scripts = {
+''',
+        '''var tiles = {}
+var tile_list = []
+var scripts = {
+''',
+        "Map model flat tile list state",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func _init():
+\tfor x in range(self.SIZE):
+\t\tfor y in range(self.SIZE):
+\t\t\tself.tiles[str(x) + "_" + str(y)] = self.tile_template.new(x, y)
+\tself.connect_neightbours()
+''',
+        '''func _init():
+\tfor x in range(self.SIZE):
+\t\tfor y in range(self.SIZE):
+\t\t\tvar tile = self.tile_template.new(x, y)
+\t\t\tself.tiles[str(x) + "_" + str(y)] = tile
+\t\t\tself.tile_list.append(tile)
+\tself.connect_neightbours()
+''',
+        "Map model flat tile list initialization",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func get_enemy_buildings_tiles(side, team=null):
+\tvar buildings = []
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].has_enemy_building(side, team):
+\t\t\tbuildings.append(self.tiles[i])
+
+\treturn buildings
+
+func ingest_scripts(incoming_scripts):
+''',
+        '''func get_enemy_buildings_tiles(side, team=null):
+\tvar buildings = []
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].has_enemy_building(side, team):
+\t\t\tbuildings.append(self.tiles[i])
+
+\treturn buildings
+
+func get_ai_entity_snapshot(side, team=null):
+\tvar snapshot = {
+\t\t"own_buildings": [],
+\t\t"own_units": [],
+\t\t"enemy_buildings": [],
+\t\t"enemy_units": [],
+\t}
+
+\tfor tile in self.tile_list:
+\t\tif tile.unit.is_present():
+\t\t\tif tile.unit.tile.side == side:
+\t\t\t\tsnapshot["own_units"].append(tile)
+\t\t\telif team == null or tile.unit.tile.team != team:
+\t\t\t\tsnapshot["enemy_units"].append(tile)
+
+\t\tif tile.building.is_present():
+\t\t\tif tile.building.tile.side == side:
+\t\t\t\tsnapshot["own_buildings"].append(tile)
+\t\t\telif team == null or tile.building.tile.team != team:
+\t\t\t\tsnapshot["enemy_buildings"].append(tile)
+
+\treturn snapshot
+
+func ingest_scripts(incoming_scripts):
+''',
+        "Map model single-pass AI entity snapshot",
+    )
+
+    replace_once(
+        AI_COLLECTOR,
+        '''\tvar buildings = self.board.map.model.get_player_buildings_tiles(side)
+\tvar units = self.board.map.model.get_player_units_tiles(side)
+
+\t#if OS.is_debug_build():
+\t#\tprint("Units: " + str(units.size()))
+\t#\tprint("Buildings: " + str(buildings.size()))
+
+\tvar enemy_buildings = self.board.map.model.get_enemy_buildings_tiles(side, team)
+\tvar enemy_units = self.board.map.model.get_enemy_units_tiles(side, team)
+''',
+        '''\tvar entity_snapshot = self.board.map.model.get_ai_entity_snapshot(side, team)
+\tvar buildings = entity_snapshot["own_buildings"]
+\tvar units = entity_snapshot["own_units"]
+
+\t#if OS.is_debug_build():
+\t#\tprint("Units: " + str(units.size()))
+\t#\tprint("Buildings: " + str(buildings.size()))
+
+\tvar enemy_buildings = entity_snapshot["enemy_buildings"]
+\tvar enemy_units = entity_snapshot["enemy_units"]
+''',
+        "AI collector single map scan",
+    )
+
+
+def patch_neighbour_iteration() -> None:
+    replace_once(
+        MAP_TILE,
+        '''var neighbours = {}
+''',
+        '''var neighbours = {}
+var neighbour_tiles = []
+''',
+        "Map tile neighbour array state",
+    )
+
+    replace_once(
+        MAP_TILE,
+        '''func add_neighbour(direction, tile):
+\tself.neighbours[direction] = tile
+''',
+        '''func add_neighbour(direction, tile):
+\tself.neighbours[direction] = tile
+\tself.neighbour_tiles.append(tile)
+''',
+        "Map tile neighbour array population",
+    )
+
+    replace_once(
+        MAP_TILE,
+        '''func is_neighbour(tile):
+\tfor direction in self.neighbours.keys():
+\t\tif self.neighbours[direction] == tile:
+\t\t\treturn true
+\treturn false
+''',
+        '''func is_neighbour(tile):
+\treturn tile in self.neighbour_tiles
+''',
+        "Map tile allocation-free neighbour lookup",
+    )
+
+    replace_once(
+        MAP_TILE,
+        '''func neighbours_enemy_unit(side, team=null):
+\tfor direction in self.neighbours.keys():
+\t\tif self.neighbours[direction].has_enemy_unit(side, team):
+\t\t\treturn true
+\treturn false
+''',
+        '''func neighbours_enemy_unit(side, team=null):
+\tfor neighbour in self.neighbour_tiles:
+\t\tif neighbour.has_enemy_unit(side, team):
+\t\t\treturn true
+\treturn false
+''',
+        "Map tile enemy-unit neighbour iteration",
+    )
+
+    replace_once(
+        MAP_TILE,
+        '''func can_attack_neightbour_enemy_unit(attacking_unit):
+\tfor direction in self.neighbours.keys():
+\t\tif self.neighbours[direction].has_enemy_unit(attacking_unit.side, attacking_unit.team):
+\t\t\tif attacking_unit.can_attack(self.neighbours[direction].unit.tile):
+\t\t\t\treturn true
+\treturn false
+''',
+        '''func can_attack_neightbour_enemy_unit(attacking_unit):
+\tfor neighbour in self.neighbour_tiles:
+\t\tif neighbour.has_enemy_unit(attacking_unit.side, attacking_unit.team):
+\t\t\tif attacking_unit.can_attack(neighbour.unit.tile):
+\t\t\t\treturn true
+\treturn false
+''',
+        "Map tile attack neighbour iteration",
+    )
+
+    replace_once(
+        MAP_TILE,
+        '''func neighbours_enemy_building(side, team=null):
+\tfor direction in self.neighbours.keys():
+\t\tif self.neighbours[direction].has_enemy_building(side, team):
+\t\t\treturn true
+\treturn false
+''',
+        '''func neighbours_enemy_building(side, team=null):
+\tfor neighbour in self.neighbour_tiles:
+\t\tif neighbour.has_enemy_building(side, team):
+\t\t\treturn true
+\treturn false
+''',
+        "Map tile enemy-building neighbour iteration",
+    )
+
+    replace_once(
+        AI_PATHFINDER,
+        '''\tfor key in tile.neighbours.keys():
+\t\tneighbour = tile.get_neighbour(key)
+
+\t\tneighbour_cost = self.get_tile_cost(neighbour)
+''',
+        '''\tfor neighbour_tile in tile.neighbour_tiles:
+\t\tneighbour = neighbour_tile
+
+\t\tneighbour_cost = self.get_tile_cost(neighbour)
+''',
+        "AI pathfinder allocation-free neighbour iteration",
+    )
+
+    replace_once(
+        AI_UNIT_BRAIN,
+        '''func _get_interaction_tiles(tile, source_tile):
+\tvar tiles = []
+\tfor neighbour in tile.neighbours:
+\t\tif not tile.neighbours[neighbour].can_acommodate_unit(source_tile.unit.tile):
+\t\t\tcontinue
+\t\tif not self.pathfinder.is_tile_reachable(tile.neighbours[neighbour]):
+\t\t\tcontinue
+
+\t\ttiles.append(tile.neighbours[neighbour])
+
+\treturn tiles
+''',
+        '''func _get_interaction_tiles(tile, source_tile):
+\tvar tiles = []
+\tfor neighbour in tile.neighbour_tiles:
+\t\tif not neighbour.can_acommodate_unit(source_tile.unit.tile):
+\t\t\tcontinue
+\t\tif not self.pathfinder.is_tile_reachable(neighbour):
+\t\t\tcontinue
+
+\t\ttiles.append(neighbour)
+
+\treturn tiles
+''',
+        "AI interaction allocation-free neighbour iteration",
+    )
+
+
+def patch_hot_dictionary_reuse() -> None:
+    replace_once(
+        AI_PATHFINDER,
+        '''func reset():
+\tself.visited_tiles = {}
+\tself.explored_tiles = {}
+\tself.tile_path = {}
+\tself.enemy_units = {}
+\tself.enemy_buildings = {}
+\tself.own_units = {}
+\tself.own_buildings = {}
+\tself.allied_units = {}
+\tself.allied_buildings = {}
+''',
+        '''func reset():
+\tself.visited_tiles.clear()
+\tself.explored_tiles.clear()
+\tself.tile_path.clear()
+\tself.enemy_units.clear()
+\tself.enemy_buildings.clear()
+\tself.own_units.clear()
+\tself.own_buildings.clear()
+\tself.allied_units.clear()
+\tself.allied_buildings.clear()
+''',
+        "AI pathfinder dictionary reuse",
+    )
 
 def patch_movement_marker_pool() -> None:
     replace_once(
@@ -458,6 +732,9 @@ def main() -> None:
     patch_board_hover()
     patch_board_fx_prewarm()
     patch_cached_tile_keys()
+    patch_ai_entity_snapshot()
+    patch_neighbour_iteration()
+    patch_hot_dictionary_reuse()
     patch_movement_marker_pool()
     patch_path_marker_pool_and_cache()
     patch_interaction_marker_pool()
