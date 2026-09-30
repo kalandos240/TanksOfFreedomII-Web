@@ -28,9 +28,8 @@ func _ready():
 	self.tile_box_space_size = self.camera.camera_space_size - self.TILE_SIZE
 
 	self.settings.changed.connect(_settings_changed)
-	for i in self.model.tiles.keys():
-		self.model.tiles[i].settings = self.settings
-		self.settings.changed.connect(self.model.tiles[i]._settings_changed)
+	for tile in self.model.tile_list:
+		tile.settings = self.settings
 
 	if not self.settings.get_option("decorations"):
 		self.tiles_frames_anchor.hide()
@@ -143,8 +142,8 @@ func detach_unit(unit):
 	self.tiles_units_anchor.remove_child(unit)
 
 func hide_invisible_tiles():
-	for i in self.model.tiles.keys():
-		self.model.tiles[i].apply_invisibility()
+	for tile in self.model.tile_list:
+		tile.apply_invisibility()
 
 
 func _settings_changed(key, new_value):
@@ -153,3 +152,7 @@ func _settings_changed(key, new_value):
 			self.tiles_frames_anchor.show()
 		else:
 			self.tiles_frames_anchor.hide()
+
+	if key == "shadows" or key == "dec_shadows" or key == "show_health":
+		for tile in self.model.tile_list:
+			tile._settings_changed(key, new_value)

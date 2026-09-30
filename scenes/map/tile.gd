@@ -232,6 +232,9 @@ func apply_invisibility():
 
 
 func _settings_changed(key, _new_value):
+	if key != "shadows" and key != "dec_shadows" and key != "show_health":
+		return
+
 	var shadows = self.settings.get_option("shadows")
 	var dec_shadows = self.settings.get_option("dec_shadows")
 
