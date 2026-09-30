@@ -3,7 +3,7 @@ extends Node
 var initialized = false
 var mouse_layer = Node3D.new()
 var ground_points = {}
-var dummy_ground_template = preload("res://scenes/tiles/ground/base_ground.tscn")
+var mouse_collision_template = preload("res://scenes/tiles/ground/mouse_collision.tscn")
 
 func initialize(size, tile_size):
 	if self.initialized:
@@ -14,11 +14,15 @@ func initialize(size, tile_size):
 	for x in range(size):
 		for y in range(size):
 			key = str(x) + "_" + str(y)
-			self.ground_points[key] = self.dummy_ground_template.instantiate()
-			self.mouse_layer.add_child(self.ground_points[key])
-			self.ground_points[key].prepare()
-			self.ground_points[key].mouse_collision.connect("mouse_entered", Callable(self.ground_points[key].mouse_collision, "_on_mouse_collision_mouse_entered"))
-			self.ground_points[key].set_position(Vector3(x * tile_size, 0, y * tile_size))
+			var ground_point = self.mouse_collision_template.instantiate()
+			self.ground_points[key] = ground_point
+			self.mouse_layer.add_child(ground_point)
+			ground_point.mouse_entered.connect(ground_point._on_mouse_collision_mouse_entered)
+
+			var point_position = ground_point.position
+			point_position.x = x * tile_size
+			point_position.z = y * tile_size
+			ground_point.position = point_position
 
 
 func detach():
