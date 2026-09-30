@@ -14,6 +14,8 @@ AI_COLLECTOR = ROOT / "scenes/board/logic/ai/collector.gd"
 AI_UNIT_BRAIN = ROOT / "scenes/board/logic/ai/brains/abstract_unit_brain.gd"
 MAP_MODEL = ROOT / "scenes/map/model.gd"
 UNIT_SCRIPT = ROOT / "scenes/tiles/units/unit.gd"
+CAMERA = ROOT / "scenes/camera.gd"
+MAP_SCENE = ROOT / "scenes/map/map.gd"
 
 
 def replace_once(path: Path, old: str, new: str, label: str) -> None:
@@ -543,6 +545,93 @@ def patch_unit_hot_stat_reads() -> None:
     )
 
 
+
+def patch_idle_transform_updates() -> None:
+    replace_once(
+        CAMERA,
+        '''var shakes_left = 0
+var last_shake_time = 0
+''',
+        '''var shakes_left = 0
+var last_shake_time = 0
+var shake_needs_reset = false
+''',
+        "Camera shake idle state",
+    )
+
+    replace_once(
+        CAMERA,
+        '''func shake():
+\tself.shakes_left = 3
+\tself.last_shake_time = 900.0
+
+func _perform_shake(delta):
+\tvar shake_offset = Vector2(0, 0)
+\tself.last_shake_time += delta
+
+\tif self.last_shake_time > 0.04:
+\t\tself.last_shake_time = 0.0
+\t\tif self.shakes_left > 0:
+\t\t\tself.shakes_left -= 1
+\t\t\tshake_offset.x = self.SHAKE_MAX_MAGNITUDE * randf_range(-1, 1)
+\t\t\tshake_offset.y = self.SHAKE_MAX_MAGNITUDE * randf_range(-1, 1)
+
+\t\tself._set_camera_translation(self.camera_lens, shake_offset)
+\t\tself._set_camera_translation(self.camera_tof, shake_offset)
+\t\tself._set_camera_translation(self.camera_aw, shake_offset)
+''',
+        '''func shake():
+\tself.shakes_left = 3
+\tself.last_shake_time = 900.0
+\tself.shake_needs_reset = true
+
+func _perform_shake(delta):
+\tif self.shakes_left <= 0 and not self.shake_needs_reset:
+\t\treturn
+
+\tvar shake_offset = Vector2(0, 0)
+\tself.last_shake_time += delta
+
+\tif self.last_shake_time > 0.04:
+\t\tself.last_shake_time = 0.0
+\t\tif self.shakes_left > 0:
+\t\t\tself.shakes_left -= 1
+\t\t\tshake_offset.x = self.SHAKE_MAX_MAGNITUDE * randf_range(-1, 1)
+\t\t\tshake_offset.y = self.SHAKE_MAX_MAGNITUDE * randf_range(-1, 1)
+\t\telse:
+\t\t\tself.shake_needs_reset = false
+
+\t\tself._set_camera_translation(self.camera_lens, shake_offset)
+\t\tself._set_camera_translation(self.camera_tof, shake_offset)
+\t\tself._set_camera_translation(self.camera_aw, shake_offset)
+''',
+        "Camera shake idle transform suppression",
+    )
+
+    replace_once(
+        MAP_SCENE,
+        '''func snap_tile_box():
+\tvar box_position = self.tile_box.get_position()
+\tvar placement = self.map_to_local(self.tile_box_position)
+
+\tplacement.y = box_position.y
+
+\tself.tile_box.set_position(placement)
+''',
+        '''func snap_tile_box():
+\tvar box_position = self.tile_box.get_position()
+\tvar placement = self.map_to_local(self.tile_box_position)
+
+\tplacement.y = box_position.y
+\tif box_position == placement:
+\t\treturn
+
+\tself.tile_box.set_position(placement)
+''',
+        "Map tile-box redundant transform suppression",
+    )
+
+
 def patch_movement_marker_pool() -> None:
     replace_once(
         MOVEMENT_MARKERS,
@@ -871,6 +960,7 @@ def main() -> None:
     patch_hot_dictionary_reuse()
     patch_ai_path_cache()
     patch_unit_hot_stat_reads()
+    patch_idle_transform_updates()
     patch_movement_marker_pool()
     patch_path_marker_pool_and_cache()
     patch_interaction_marker_pool()
