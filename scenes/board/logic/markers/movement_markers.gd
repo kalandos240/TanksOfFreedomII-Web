@@ -67,10 +67,10 @@ func expand_from_tile(tile, depth, reach_cost, unit, ap_limit):
 	var neighbour
 	var neighbour_cost
 
-	if not self.marker_exists(tile.position) and tile.can_acommodate_unit(unit):
-		self.place_movement_marker(tile.position)
+	if not self.marker_exists(tile) and tile.can_acommodate_unit(unit):
+		self.place_movement_marker(tile)
 
-	if self.marker_exists(tile.position):
+	if self.marker_exists(tile):
 		self.colour_marker(tile, unit, ap_limit)
 
 	if depth < 1 || not tile.can_pass_through(unit) || reach_cost + 1 > ap_limit:
@@ -85,10 +85,10 @@ func expand_from_tile(tile, depth, reach_cost, unit, ap_limit):
 			self.expand_from_tile(neighbour, depth - 1, reach_cost + 1, unit, ap_limit)
 			self.connect_path(tile, neighbour)
 
-func marker_exists(marker_position):
-	return self.created_markers.has(str(marker_position.x) + "_" + str(marker_position.y))
+func marker_exists(tile):
+	return self.created_markers.has(tile.cache_key)
 
-func place_movement_marker(marker_position):
+func place_movement_marker(tile):
 	var new_marker
 	if self.marker_pool.is_empty():
 		new_marker = self.marker_template.instantiate()
@@ -97,22 +97,23 @@ func place_movement_marker(marker_position):
 		new_marker = self.marker_pool.pop_back()
 		new_marker.show()
 
-	var placement = self.map_obj.map_to_local(marker_position)
+	var placement = self.map_obj.map_to_local(tile.position)
 	new_marker.set_position(placement)
 
-	self.created_markers[str(marker_position.x) + "_" + str(marker_position.y)] = new_marker
+	self.created_markers[tile.cache_key] = new_marker
 
 func colour_marker(tile, unit, ap_limit):
 	var marker
 	var key = self._get_key(tile)
+	var tile_cost = self.get_tile_cost(tile)
 
 	marker = self.created_markers[key]
 
-	if self.get_tile_cost(tile) == unit.move:
+	if tile_cost == unit.move:
 		marker.set_material(self.colour_materials["neutral"])
 		return
 
-	if self.get_tile_cost(tile) == ap_limit:
+	if tile_cost == ap_limit:
 		marker.set_material(self.colour_materials["green"])
 		return
 

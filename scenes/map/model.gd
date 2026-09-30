@@ -5,6 +5,7 @@ var tile_template = preload("res://scenes/map/tile.gd")
 
 var tiles = {}
 var tile_list = []
+var tile_grid = []
 var scripts = {
 	"stories" : {},
 	"triggers" : {}
@@ -13,10 +14,13 @@ var metadata = {}
 
 func _init():
 	for x in range(self.SIZE):
+		var column = []
+		self.tile_grid.append(column)
 		for y in range(self.SIZE):
 			var tile = self.tile_template.new(x, y)
 			self.tiles[str(x) + "_" + str(y)] = tile
 			self.tile_list.append(tile)
+			column.append(tile)
 	self.connect_neightbours()
 
 func wipe_metadata():
@@ -27,14 +31,12 @@ func wipe_scripts():
 	self.scripts["triggers"].clear()
 
 func get_tile(position: Vector2i):
-	var key = str(position.x) + "_" + str(position.y)
-	if self.tiles.has(key):
-		return self.tiles[key]
-	return null
+	if position.x < 0 or position.x >= self.SIZE or position.y < 0 or position.y >= self.SIZE:
+		return null
+	return self.tile_grid[position.x][position.y]
 
 func get_tile2(x, y):
-	# Dirty solution
-	return self.tiles[str(int(x)) + "_" + str(int(y))]
+	return self.tile_grid[int(x)][int(y)]
 
 func get_dict():
 	var tiles_dict = {}
