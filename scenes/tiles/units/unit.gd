@@ -15,6 +15,7 @@ const EXP_PER_LEVEL = 2
 
 var enable_healthbar = false
 @onready var healthbar_sprite = $"mesh_anchor/healthbar"
+@onready var healthbar_viewport = $"mesh_anchor/healthbar/SubViewport"
 @onready var healthbar = $"mesh_anchor/healthbar/SubViewport/bar"
 @onready var healthbar_lv1 = $"mesh_anchor/healthbar/SubViewport/level1"
 @onready var healthbar_lv2 = $"mesh_anchor/healthbar/SubViewport/level2"
@@ -77,7 +78,13 @@ var desaturated_material
 
 func _ready():
 	self.animations.animation_finished.connect(_on_animation_finished)
-	$"mesh_anchor/healthbar".texture = $"mesh_anchor/healthbar/SubViewport".get_texture()
+	$"mesh_anchor/healthbar".texture = self.healthbar_viewport.get_texture()
+	if OS.has_feature("web"):
+		self.healthbar_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+func _refresh_healthbar_viewport():
+	if OS.has_feature("web") and self.healthbar_viewport != null:
+		self.healthbar_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 func reset():
 	var stats = self.get_stats_with_modifiers()
@@ -464,6 +471,7 @@ func is_hero():
 func _update_healthbar():
 	if self.healthbar != null:
 		self.healthbar.value = self.hp
+		self._refresh_healthbar_viewport()
 
 func _update_level():
 	if self.healthbar == null:
@@ -477,11 +485,13 @@ func _update_level():
 		self.healthbar_lv2.show()
 	if self.level == 3:
 		self.healthbar_lv3.show()
+	self._refresh_healthbar_viewport()
 
 func _update_energy():
 	if self.energybar != null:
 		self.energybar.value = self.move
 		self.energybar.max_value = self.max_move
+		self._refresh_healthbar_viewport()
 
 func enable_health():
 	self.enable_healthbar = true
@@ -489,6 +499,7 @@ func enable_health():
 func show_health():
 	if not self.enable_healthbar:
 		return
+	self._refresh_healthbar_viewport()
 	self.healthbar_sprite.show()
 func hide_health():
 	self.healthbar_sprite.hide()
