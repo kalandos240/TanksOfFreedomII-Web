@@ -1574,6 +1574,87 @@ func place_movement_marker(tile):
     )
 
 
+
+def patch_centralized_tile_settings() -> None:
+    replace_once(
+        MAP_SCENE,
+        '''func _ready():
+\tself.tile_box_space_size = self.camera.camera_space_size - self.TILE_SIZE
+
+\tself.settings.changed.connect(_settings_changed)
+\tfor i in self.model.tiles.keys():
+\t\tself.model.tiles[i].settings = self.settings
+\t\tself.settings.changed.connect(self.model.tiles[i]._settings_changed)
+
+\tif not self.settings.get_option("decorations"):
+\t\tself.tiles_frames_anchor.hide()
+''',
+        '''func _ready():
+\tself.tile_box_space_size = self.camera.camera_space_size - self.TILE_SIZE
+
+\tself.settings.changed.connect(_settings_changed)
+\tfor tile in self.model.tile_list:
+\t\ttile.settings = self.settings
+
+\tif not self.settings.get_option("decorations"):
+\t\tself.tiles_frames_anchor.hide()
+''',
+        "Map centralized tile settings subscriptions",
+    )
+
+    replace_once(
+        MAP_SCENE,
+        '''func hide_invisible_tiles():
+\tfor i in self.model.tiles.keys():
+\t\tself.model.tiles[i].apply_invisibility()
+''',
+        '''func hide_invisible_tiles():
+\tfor tile in self.model.tile_list:
+\t\ttile.apply_invisibility()
+''',
+        "Map invisibility tile-list iteration",
+    )
+
+    replace_once(
+        MAP_SCENE,
+        '''func _settings_changed(key, new_value):
+\tif key == "decorations":
+\t\tif new_value:
+\t\t\tself.tiles_frames_anchor.show()
+\t\telse:
+\t\t\tself.tiles_frames_anchor.hide()
+''',
+        '''func _settings_changed(key, new_value):
+\tif key == "decorations":
+\t\tif new_value:
+\t\t\tself.tiles_frames_anchor.show()
+\t\telse:
+\t\t\tself.tiles_frames_anchor.hide()
+
+\tif key == "shadows" or key == "dec_shadows" or key == "show_health":
+\t\tfor tile in self.model.tile_list:
+\t\t\ttile._settings_changed(key, new_value)
+''',
+        "Map relevant tile settings fan-out",
+    )
+
+    replace_once(
+        MAP_TILE,
+        '''func _settings_changed(key, _new_value):
+\tvar shadows = self.settings.get_option("shadows")
+\tvar dec_shadows = self.settings.get_option("dec_shadows")
+''',
+        '''func _settings_changed(key, _new_value):
+\tif key != "shadows" and key != "dec_shadows" and key != "show_health":
+\t\treturn
+
+\tvar shadows = self.settings.get_option("shadows")
+\tvar dec_shadows = self.settings.get_option("dec_shadows")
+''',
+        "Map tile settings irrelevant-key guard",
+    )
+
+
 def patch_movement_marker_pool() -> None:
     replace_once(
         MOVEMENT_MARKERS,
@@ -1906,6 +1987,7 @@ def main() -> None:
     patch_ai_path_cache()
     patch_unit_hot_stat_reads()
     patch_idle_transform_updates()
+    patch_centralized_tile_settings()
     patch_healthbar_viewport_updates()
     patch_explosion_pool()
     patch_movement_marker_pool()
