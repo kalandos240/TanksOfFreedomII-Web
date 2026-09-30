@@ -30,3 +30,14 @@ func rain_bless():
 
 func rain_heal():
 	self.heal.set_emitting(true)
+
+func reset_for_pool():
+	self.main.set_emitting(false)
+	self.smoke.set_emitting(false)
+	self.small_main.set_emitting(false)
+	self.bless.set_emitting(false)
+	self.heal.set_emitting(false)
+
+	for audio_player in $"audio".get_children():
+		audio_player.stop()
+		audio_player.queue_free()

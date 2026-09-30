@@ -35,6 +35,7 @@ var last_hover_tile = null
 
 var explosion_template = preload("res://scenes/fx/explosion.tscn")
 var projectile_template = preload("res://scenes/fx/projectile.tscn")
+var explosion_pool = []
 
 var ending_turn_in_progress = false
 var ending_turn_multiplier = 1
@@ -55,9 +56,10 @@ func _ready():
 func _prewarm_web_fx():
 	var prewarm_explosion = self.explosion_template.instantiate()
 	self.explosion_anchor.add_child(prewarm_explosion)
+	prewarm_explosion.reset_for_pool()
 	prewarm_explosion.hide()
+	self.explosion_pool.append(prewarm_explosion)
 	await self.get_tree().process_frame
-	prewarm_explosion.queue_free()
 
 	var prewarm_projectile = self.projectile_template.instantiate()
 	self.explosion_anchor.add_child(prewarm_projectile)
@@ -662,8 +664,14 @@ func heal_a_tile(tile):
 
 func _spawn_temporary_explosion_instance_on_tile(tile, free_delay=1.5):
 	var explosion_position = self.map.map_to_local(tile.position)
-	var new_explosion = self.explosion_template.instantiate()
-	self.explosion_anchor.add_child(new_explosion)
+	var new_explosion
+	if self.explosion_pool.is_empty():
+		new_explosion = self.explosion_template.instantiate()
+		self.explosion_anchor.add_child(new_explosion)
+	else:
+		new_explosion = self.explosion_pool.pop_back()
+		new_explosion.show()
+
 	new_explosion.set_position(Vector3(explosion_position.x, 0, explosion_position.z))
 	self.destroy_explosion_with_delay(new_explosion, free_delay)
 
@@ -955,7 +963,11 @@ func main_menu():
 
 func destroy_explosion_with_delay(explosion_object, delay):
 	await self.get_tree().create_timer(delay).timeout
-	explosion_object.queue_free()
+	if not is_instance_valid(explosion_object):
+		return
+	explosion_object.reset_for_pool()
+	explosion_object.hide()
+	self.explosion_pool.append(explosion_object)
 
 
 func _signal_winner(winning_side):
