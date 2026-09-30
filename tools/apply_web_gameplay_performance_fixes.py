@@ -16,6 +16,7 @@ MAP_MODEL = ROOT / "scenes/map/model.gd"
 UNIT_SCRIPT = ROOT / "scenes/tiles/units/unit.gd"
 CAMERA = ROOT / "scenes/camera.gd"
 MAP_SCENE = ROOT / "scenes/map/map.gd"
+EXPLOSION_SCRIPT = ROOT / "scenes/fx/explosion.gd"
 
 
 def replace_once(path: Path, old: str, new: str, label: str) -> None:
@@ -728,6 +729,107 @@ func _update_energy():
     )
 
 
+
+def patch_explosion_pool() -> None:
+    replace_once(
+        BOARD,
+        '''var explosion_template = preload("res://scenes/fx/explosion.tscn")
+var projectile_template = preload("res://scenes/fx/projectile.tscn")
+''',
+        '''var explosion_template = preload("res://scenes/fx/explosion.tscn")
+var projectile_template = preload("res://scenes/fx/projectile.tscn")
+var explosion_pool = []
+''',
+        "Board explosion pool state",
+    )
+
+    replace_once(
+        BOARD,
+        '''\tvar prewarm_explosion = self.explosion_template.instantiate()
+\tself.explosion_anchor.add_child(prewarm_explosion)
+\tprewarm_explosion.hide()
+\tawait self.get_tree().process_frame
+\tprewarm_explosion.queue_free()
+''',
+        '''\tvar prewarm_explosion = self.explosion_template.instantiate()
+\tself.explosion_anchor.add_child(prewarm_explosion)
+\tprewarm_explosion.reset_for_pool()
+\tprewarm_explosion.hide()
+\tself.explosion_pool.append(prewarm_explosion)
+\tawait self.get_tree().process_frame
+''',
+        "Board explosion pool Web prewarm",
+    )
+
+    replace_once(
+        BOARD,
+        '''func destroy_explosion_with_delay(explosion_object, delay):
+\tawait self.get_tree().create_timer(delay).timeout
+\texplosion_object.queue_free()
+''',
+        '''func destroy_explosion_with_delay(explosion_object, delay):
+\tawait self.get_tree().create_timer(delay).timeout
+\tif not is_instance_valid(explosion_object):
+\t\treturn
+\texplosion_object.reset_for_pool()
+\texplosion_object.hide()
+\tself.explosion_pool.append(explosion_object)
+''',
+        "Board explosion recycle",
+    )
+
+    replace_once(
+        BOARD,
+        '''func _spawn_temporary_explosion_instance_on_tile(tile, free_delay=1.5):
+\tvar explosion_position = self.map.map_to_local(tile.position)
+\tvar new_explosion = self.explosion_template.instantiate()
+\tself.explosion_anchor.add_child(new_explosion)
+\tnew_explosion.set_position(Vector3(explosion_position.x, 0, explosion_position.z))
+\tself.destroy_explosion_with_delay(new_explosion, free_delay)
+
+\treturn new_explosion
+''',
+        '''func _spawn_temporary_explosion_instance_on_tile(tile, free_delay=1.5):
+\tvar explosion_position = self.map.map_to_local(tile.position)
+\tvar new_explosion
+\tif self.explosion_pool.is_empty():
+\t\tnew_explosion = self.explosion_template.instantiate()
+\t\tself.explosion_anchor.add_child(new_explosion)
+\telse:
+\t\tnew_explosion = self.explosion_pool.pop_back()
+\t\tnew_explosion.show()
+
+\tnew_explosion.set_position(Vector3(explosion_position.x, 0, explosion_position.z))
+\tself.destroy_explosion_with_delay(new_explosion, free_delay)
+
+\treturn new_explosion
+''',
+        "Board explosion pooled allocation",
+    )
+
+    replace_once(
+        EXPLOSION_SCRIPT,
+        '''func rain_heal():
+\tself.heal.set_emitting(true)
+''',
+        '''func rain_heal():
+\tself.heal.set_emitting(true)
+
+func reset_for_pool():
+\tself.main.set_emitting(false)
+\tself.smoke.set_emitting(false)
+\tself.small_main.set_emitting(false)
+\tself.bless.set_emitting(false)
+\tself.heal.set_emitting(false)
+
+\tfor audio_player in $"audio".get_children():
+\t\taudio_player.stop()
+\t\taudio_player.queue_free()
+''',
+        "Explosion pooled reset",
+    )
+
+
 def patch_movement_marker_pool() -> None:
     replace_once(
         MOVEMENT_MARKERS,
@@ -1058,6 +1160,7 @@ def main() -> None:
     patch_unit_hot_stat_reads()
     patch_idle_transform_updates()
     patch_healthbar_viewport_updates()
+    patch_explosion_pool()
     patch_movement_marker_pool()
     patch_path_marker_pool_and_cache()
     patch_interaction_marker_pool()
