@@ -45,11 +45,9 @@ func _physics_process(_delta):
 	self.snap_tile_box()
 
 func _manage_mouse_input():
-	var gamepad_offset = Vector2(
-		Input.get_joy_axis(0, JOY_AXIS_LEFT_X),
-		Input.get_joy_axis(0, JOY_AXIS_LEFT_Y)
-	)
-	if gamepad_offset.length_squared() > 0.1:
+	var gamepad_x = Input.get_joy_axis(0, JOY_AXIS_LEFT_X)
+	var gamepad_y = Input.get_joy_axis(0, JOY_AXIS_LEFT_Y)
+	if gamepad_x * gamepad_x + gamepad_y * gamepad_y > 0.1:
 		self.tile_box_mouse = false
 
 

@@ -1,6 +1,7 @@
 extends Node3D
 
 const DEADZONE = 0.2
+const DEADZONE_SQUARED = DEADZONE * DEADZONE
 const MOVEMENT_AXIS_X = JOY_AXIS_LEFT_X
 const MOVEMENT_AXIS_Y = JOY_AXIS_LEFT_Y
 const CAMERA_AXIS_X = JOY_AXIS_RIGHT_X
@@ -214,10 +215,17 @@ func _handle_screen_drag(event: InputEventScreenDrag) -> void:
 	self._mouse_shift_camera(event.relative)
 
 func _get_touch_distance() -> float:
-	var ids = self._touch_points.keys()
-	if ids.size() < 2:
+	if self._touch_points.size() < 2:
 		return 0.0
-	return self._touch_points[ids[0]].distance_to(self._touch_points[ids[1]])
+
+	var first_position = null
+	for touch_id in self._touch_points:
+		if first_position == null:
+			first_position = self._touch_points[touch_id]
+		else:
+			return first_position.distance_to(self._touch_points[touch_id])
+
+	return 0.0
 
 func _process(delta):
 	if self.paused:
@@ -261,9 +269,13 @@ func _physics_process(delta):
 
 	self._perform_shake(delta)
 
-	self.process_free_camera_input(delta)
-	self.process_tof_camera_input(delta)
-	self.process_aw_camera_input(delta)
+	match self.camera_mode:
+		self.MODE_FREE:
+			self.process_free_camera_input(delta)
+		self.MODE_TOF:
+			self.process_tof_camera_input(delta)
+		self.MODE_AW:
+			self.process_aw_camera_input(delta)
 
 	if self.camera_in_transit or self.ai_operated or self.script_operated:
 		return
@@ -356,7 +368,8 @@ func process_movement_input(delta):
 	if self.camera_mode == self.MODE_AW:
 		axis_value = axis_value.rotated(deg_to_rad(0))
 
-	if axis_value.length() > self.DEADZONE && not self.reset_stick:
+	var axis_length_squared = axis_value.length_squared()
+	if axis_length_squared > self.DEADZONE_SQUARED && not self.reset_stick:
 		var cam_position = self.get_position()
 		cam_position.x -= axis_value.x * self.move_speed * delta
 		cam_position.z -= axis_value.y * self.move_speed * delta
@@ -366,7 +379,7 @@ func process_movement_input(delta):
 
 		self.set_position(cam_position)
 		self.snap_tile_box_to_camera = true
-	elif axis_value.length() < self.DEADZONE && self.reset_stick:
+	elif axis_length_squared < self.DEADZONE_SQUARED && self.reset_stick:
 		self.reset_stick = false
 
 
