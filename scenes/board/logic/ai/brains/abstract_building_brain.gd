@@ -4,6 +4,48 @@ const ENEMY_PROXIMITY = 4
 const UNITS_HARD_LIMIT = 5
 const HARD_LIMIT_MULTIPLIER = 1.3
 const UNITS_SOFT_LIMIT = 10
+const TEMPLATE_UNIT_CLASS = {
+	"blue_infantry" : "infantry",
+	"blue_tank" : "tank",
+	"blue_heli" : "heli",
+	"blue_m_inf" : "mobile_infantry",
+	"blue_rocket" : "rocket_artillery",
+	"blue_scout" : "scout",
+	"blue_truck" : "npc",
+	"red_infantry" : "infantry",
+	"red_tank" : "tank",
+	"red_heli" : "heli",
+	"red_m_inf" : "mobile_infantry",
+	"red_rocket" : "rocket_artillery",
+	"red_scout" : "scout",
+	"red_truck" : "npc",
+	"green_infantry" : "infantry",
+	"green_tank" : "tank",
+	"green_heli" : "heli",
+	"green_m_inf" : "mobile_infantry",
+	"green_rocket" : "rocket_artillery",
+	"green_scout" : "scout",
+	"green_truck" : "npc",
+	"yellow_infantry" : "infantry",
+	"yellow_tank" : "tank",
+	"yellow_heli" : "heli",
+	"yellow_m_inf" : "mobile_infantry",
+	"yellow_rocket" : "rocket_artillery",
+	"yellow_scout" : "scout",
+	"yellow_truck" : "npc",
+	"npc_president" : "npc",
+	"npc_lord" : "npc",
+	"npc_chancellor" : "npc",
+	"npc_king" : "npc",
+	"hero_general" : "hero",
+	"hero_commando" : "hero",
+	"hero_gentleman" : "hero",
+	"hero_noble" : "hero",
+	"hero_admiral" : "hero",
+	"hero_captain" : "hero",
+	"hero_prince" : "hero",
+	"hero_warlord" : "hero"
+}
 
 var action_template = preload("res://scenes/board/logic/ai/actions/use_ability_action.gd")
 var reserve_template = preload("res://scenes/board/logic/ai/actions/reserve_ap_action.gd")
@@ -47,9 +89,9 @@ func get_actions(entity_tile, enemy_buildings, enemy_units, own_buildings, own_u
 func _get_spawn_points(entity_tile):
 	var spawn_points = []
 
-	for neighbour in entity_tile.neighbours:
-		if entity_tile.neighbours[neighbour].can_acommodate_unit():
-			spawn_points.append(entity_tile.neighbours[neighbour])
+	for neighbour in entity_tile.neighbour_tiles:
+		if neighbour.can_acommodate_unit():
+			spawn_points.append(neighbour)
 
 	return spawn_points
 
@@ -128,47 +170,4 @@ func _gather_unit_stats(units):
 	return stats
 
 func _map_template_name(template_name):
-	var map = {
-		"blue_infantry" : "infantry",
-		"blue_tank" : "tank",
-		"blue_heli" : "heli",
-		"blue_m_inf" : "mobile_infantry",
-		"blue_rocket" : "rocket_artillery",
-		"blue_scout" : "scout",
-		"blue_truck" : "npc",
-		"red_infantry" : "infantry",
-		"red_tank" : "tank",
-		"red_heli" : "heli",
-		"red_m_inf" : "mobile_infantry",
-		"red_rocket" : "rocket_artillery",
-		"red_scout" : "scout",
-		"red_truck" : "npc",
-		"green_infantry" : "infantry",
-		"green_tank" : "tank",
-		"green_heli" : "heli",
-		"green_m_inf" : "mobile_infantry",
-		"green_rocket" : "rocket_artillery",
-		"green_scout" : "scout",
-		"green_truck" : "npc",
-		"yellow_infantry" : "infantry",
-		"yellow_tank" : "tank",
-		"yellow_heli" : "heli",
-		"yellow_m_inf" : "mobile_infantry",
-		"yellow_rocket" : "rocket_artillery",
-		"yellow_scout" : "scout",
-		"yellow_truck" : "npc",
-		"npc_president" : "npc",
-		"npc_lord" : "npc",
-		"npc_chancellor" : "npc",
-		"npc_king" : "npc",
-		"hero_general" : "hero",
-		"hero_commando" : "hero",
-		"hero_gentleman" : "hero",
-		"hero_noble" : "hero",
-		"hero_admiral" : "hero",
-		"hero_captain" : "hero",
-		"hero_prince" : "hero",
-		"hero_warlord" : "hero"
-	}
-
-	return map[template_name]
+	return self.TEMPLATE_UNIT_CLASS[template_name]

@@ -87,11 +87,9 @@ func _refresh_healthbar_viewport():
 		self.healthbar_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 func reset():
-	var stats = self.get_stats_with_modifiers()
-
-	self.hp = stats["max_hp"]
-	self.move = stats["max_move"]
-	self.attacks = stats["max_attacks"]
+	self.hp = self.get_modified_max_hp()
+	self.move = self.get_modified_max_move()
+	self.attacks = self.get_modified_max_attacks()
 	self._update_healthbar()
 	self._update_energy()
 	self._update_level()
@@ -166,6 +164,18 @@ func _apply_experience_modifiers(stats):
 
 	return stats
 
+func get_modified_max_hp():
+	return self.max_hp + self.modifiers.get("max_hp", 0)
+
+func get_modified_max_move():
+	var value = self.max_move + self.modifiers.get("max_move", 0)
+	if self.level > 2:
+		value += 1
+	return value
+
+func get_modified_max_attacks():
+	return self.max_attacks + self.modifiers.get("max_attacks", 0)
+
 func get_move():
 	return self.move + self.modifiers.get("move", 0)
 
@@ -188,15 +198,13 @@ func restore_move(value):
 	self._update_energy()
 
 func reset_move():
-	var stats = self.get_stats_with_modifiers()
-	self.move = stats["max_move"]
+	self.move = self.get_modified_max_move()
 	self.restore_highlight()
 	self._update_energy()
 
 func replenish_moves():
 	self.reset_move()
-	var stats = self.get_stats_with_modifiers()
-	self.attacks = stats["max_attacks"]
+	self.attacks = self.get_modified_max_attacks()
 
 func remove_moves():
 	self.attacks = 0
@@ -403,10 +411,10 @@ func is_max_level():
 	return self.level >= self.MAX_LEVEL
 
 func heal(value):
-	var stats = self.get_stats_with_modifiers()
+	var max_hp_value = self.get_modified_max_hp()
 	self.hp += value
-	if self.hp > stats["max_hp"]:
-		self.hp = stats["max_hp"]
+	if self.hp > max_hp_value:
+		self.hp = max_hp_value
 	self._update_healthbar()
 
 func get_value():
