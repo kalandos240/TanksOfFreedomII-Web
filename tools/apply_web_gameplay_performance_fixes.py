@@ -632,6 +632,102 @@ func _perform_shake(delta):
     )
 
 
+
+def patch_healthbar_viewport_updates() -> None:
+    replace_once(
+        UNIT_SCRIPT,
+        '''var enable_healthbar = false
+@onready var healthbar_sprite = $"mesh_anchor/healthbar"
+''',
+        '''var enable_healthbar = false
+@onready var healthbar_sprite = $"mesh_anchor/healthbar"
+@onready var healthbar_viewport = $"mesh_anchor/healthbar/SubViewport"
+''',
+        "Unit healthbar viewport handle",
+    )
+
+    replace_once(
+        UNIT_SCRIPT,
+        '''func _ready():
+\tself.animations.animation_finished.connect(_on_animation_finished)
+\t$"mesh_anchor/healthbar".texture = $"mesh_anchor/healthbar/SubViewport".get_texture()
+''',
+        '''func _ready():
+\tself.animations.animation_finished.connect(_on_animation_finished)
+\t$"mesh_anchor/healthbar".texture = self.healthbar_viewport.get_texture()
+\tif OS.has_feature("web"):
+\t\tself.healthbar_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+func _refresh_healthbar_viewport():
+\tif OS.has_feature("web") and self.healthbar_viewport != null:
+\t\tself.healthbar_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+''',
+        "Unit healthbar Web update-on-demand setup",
+    )
+
+    replace_once(
+        UNIT_SCRIPT,
+        '''func _update_healthbar():
+\tif self.healthbar != null:
+\t\tself.healthbar.value = self.hp
+''',
+        '''func _update_healthbar():
+\tif self.healthbar != null:
+\t\tself.healthbar.value = self.hp
+\t\tself._refresh_healthbar_viewport()
+''',
+        "Unit healthbar value refresh",
+    )
+
+    replace_once(
+        UNIT_SCRIPT,
+        '''\tif self.level == 3:
+\t\tself.healthbar_lv3.show()
+
+func _update_energy():
+''',
+        '''\tif self.level == 3:
+\t\tself.healthbar_lv3.show()
+\tself._refresh_healthbar_viewport()
+
+func _update_energy():
+''',
+        "Unit level indicator viewport refresh",
+    )
+
+    replace_once(
+        UNIT_SCRIPT,
+        '''func _update_energy():
+\tif self.energybar != null:
+\t\tself.energybar.value = self.move
+\t\tself.energybar.max_value = self.max_move
+''',
+        '''func _update_energy():
+\tif self.energybar != null:
+\t\tself.energybar.value = self.move
+\t\tself.energybar.max_value = self.max_move
+\t\tself._refresh_healthbar_viewport()
+''',
+        "Unit energybar viewport refresh",
+    )
+
+    replace_once(
+        UNIT_SCRIPT,
+        '''func show_health():
+\tif not self.enable_healthbar:
+\t\treturn
+\tself.healthbar_sprite.show()
+''',
+        '''func show_health():
+\tif not self.enable_healthbar:
+\t\treturn
+\tself._refresh_healthbar_viewport()
+\tself.healthbar_sprite.show()
+''',
+        "Unit healthbar show refresh",
+    )
+
+
 def patch_movement_marker_pool() -> None:
     replace_once(
         MOVEMENT_MARKERS,
@@ -961,6 +1057,7 @@ def main() -> None:
     patch_ai_path_cache()
     patch_unit_hot_stat_reads()
     patch_idle_transform_updates()
+    patch_healthbar_viewport_updates()
     patch_movement_marker_pool()
     patch_path_marker_pool_and_cache()
     patch_interaction_marker_pool()
