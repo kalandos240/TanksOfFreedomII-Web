@@ -13,6 +13,7 @@ AI_PATHFINDER = ROOT / "scenes/board/logic/ai/pathfinder.gd"
 AI_COLLECTOR = ROOT / "scenes/board/logic/ai/collector.gd"
 AI_UNIT_BRAIN = ROOT / "scenes/board/logic/ai/brains/abstract_unit_brain.gd"
 MAP_MODEL = ROOT / "scenes/map/model.gd"
+UNIT_SCRIPT = ROOT / "scenes/tiles/units/unit.gd"
 
 
 def replace_once(path: Path, old: str, new: str, label: str) -> None:
@@ -409,6 +410,139 @@ def patch_hot_dictionary_reuse() -> None:
         "AI pathfinder dictionary reuse",
     )
 
+
+def patch_ai_path_cache() -> None:
+    replace_once(
+        AI_PATHFINDER,
+        '''var visited_tiles = {}
+var explored_tiles = {}
+var tile_path = {}
+''',
+        '''var visited_tiles = {}
+var explored_tiles = {}
+var tile_path = {}
+var path_cache = {}
+''',
+        "AI pathfinder path cache state",
+    )
+
+    replace_once(
+        AI_PATHFINDER,
+        '''func reset():
+\tself.visited_tiles.clear()
+\tself.explored_tiles.clear()
+\tself.tile_path.clear()
+\tself.enemy_units.clear()
+''',
+        '''func reset():
+\tself.visited_tiles.clear()
+\tself.explored_tiles.clear()
+\tself.tile_path.clear()
+\tself.path_cache.clear()
+\tself.enemy_units.clear()
+''',
+        "AI pathfinder path cache reset",
+    )
+
+    replace_once(
+        AI_PATHFINDER,
+        '''func get_path_to_tile(destination_tile):
+\tvar path = []
+\tvar key = self._get_key(destination_tile)
+
+\twhile key != null:
+\t\tpath.append(key)
+\t\tif not self.tile_path.has(key):
+\t\t\treturn []
+\t\tkey = self.tile_path[key]
+
+\treturn path
+''',
+        '''func get_path_to_tile(destination_tile):
+\tvar destination_key = self._get_key(destination_tile)
+\tif self.path_cache.has(destination_key):
+\t\treturn self.path_cache[destination_key]
+
+\tvar path = []
+\tvar key = destination_key
+
+\twhile key != null:
+\t\tpath.append(key)
+\t\tif not self.tile_path.has(key):
+\t\t\tself.path_cache[destination_key] = []
+\t\t\treturn self.path_cache[destination_key]
+\t\tkey = self.tile_path[key]
+
+\tself.path_cache[destination_key] = path
+\treturn path
+''',
+        "AI pathfinder reconstructed path cache",
+    )
+
+
+def patch_unit_hot_stat_reads() -> None:
+    replace_once(
+        UNIT_SCRIPT,
+        '''func get_move():
+\tvar stats = self.get_stats_with_modifiers()
+\treturn stats["move"]
+''',
+        '''func get_move():
+\treturn self.move + self.modifiers.get("move", 0)
+''',
+        "Unit move stat allocation-free read",
+    )
+
+    replace_once(
+        UNIT_SCRIPT,
+        '''func get_attack():
+\tvar stats = self.get_stats_with_modifiers()
+\treturn stats["attack"]
+''',
+        '''func get_attack():
+\treturn self.attack + self.modifiers.get("attack", 0)
+''',
+        "Unit attack stat allocation-free read",
+    )
+
+    replace_once(
+        UNIT_SCRIPT,
+        '''func get_armor():
+\tvar stats = self.get_stats_with_modifiers()
+\treturn stats["armor"]
+''',
+        '''func get_armor():
+\tvar value = self.armor + self.modifiers.get("armor", 0)
+\tif self.level > 1:
+\t\tvalue += 1
+\treturn value
+''',
+        "Unit armor stat allocation-free read",
+    )
+
+    replace_once(
+        AI_UNIT_BRAIN,
+        '''\tif entity_tile.unit.tile.can_kill(target_tile.unit.tile):
+\t\tvalue += 100
+\telse:
+\t\tif target_tile.unit.tile.can_retaliate(entity_tile.unit.tile):
+\t\t\tvalue -= 10
+\t\tif target_tile.unit.tile.can_retaliate(entity_tile.unit.tile) and target_tile.unit.tile.has_enough_power_to_kill(entity_tile.unit.tile):
+\t\t\tvalue -= self.counter_death_penalty
+''',
+        '''\tif entity_tile.unit.tile.can_kill(target_tile.unit.tile):
+\t\tvalue += 100
+\telse:
+\t\tvar can_retaliate = target_tile.unit.tile.can_retaliate(entity_tile.unit.tile)
+\t\tif can_retaliate:
+\t\t\tvalue -= 10
+\t\tif can_retaliate and target_tile.unit.tile.has_enough_power_to_kill(entity_tile.unit.tile):
+\t\t\tvalue -= self.counter_death_penalty
+''',
+        "AI retaliation duplicate check removal",
+    )
+
+
 def patch_movement_marker_pool() -> None:
     replace_once(
         MOVEMENT_MARKERS,
@@ -735,6 +869,8 @@ def main() -> None:
     patch_ai_entity_snapshot()
     patch_neighbour_iteration()
     patch_hot_dictionary_reuse()
+    patch_ai_path_cache()
+    patch_unit_hot_stat_reads()
     patch_movement_marker_pool()
     patch_path_marker_pool_and_cache()
     patch_interaction_marker_pool()
