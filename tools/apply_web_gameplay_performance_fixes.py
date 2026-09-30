@@ -1418,6 +1418,162 @@ def patch_marker_collection_reuse() -> None:
     )
 
 
+
+def patch_direct_tile_grid() -> None:
+    replace_once(
+        MAP_MODEL,
+        '''var tiles = {}
+var tile_list = []
+var scripts = {
+''',
+        '''var tiles = {}
+var tile_list = []
+var tile_grid = []
+var scripts = {
+''',
+        "Map model direct tile-grid state",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func _init():
+\tfor x in range(self.SIZE):
+\t\tfor y in range(self.SIZE):
+\t\t\tvar tile = self.tile_template.new(x, y)
+\t\t\tself.tiles[str(x) + "_" + str(y)] = tile
+\t\t\tself.tile_list.append(tile)
+\tself.connect_neightbours()
+''',
+        '''func _init():
+\tfor x in range(self.SIZE):
+\t\tvar column = []
+\t\tself.tile_grid.append(column)
+\t\tfor y in range(self.SIZE):
+\t\t\tvar tile = self.tile_template.new(x, y)
+\t\t\tself.tiles[str(x) + "_" + str(y)] = tile
+\t\t\tself.tile_list.append(tile)
+\t\t\tcolumn.append(tile)
+\tself.connect_neightbours()
+''',
+        "Map model direct tile-grid initialization",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func get_tile(position: Vector2i):
+\tvar key = str(position.x) + "_" + str(position.y)
+\tif self.tiles.has(key):
+\t\treturn self.tiles[key]
+\treturn null
+
+func get_tile2(x, y):
+\t# Dirty solution
+\treturn self.tiles[str(int(x)) + "_" + str(int(y))]
+''',
+        '''func get_tile(position: Vector2i):
+\tif position.x < 0 or position.x >= self.SIZE or position.y < 0 or position.y >= self.SIZE:
+\t\treturn null
+\treturn self.tile_grid[position.x][position.y]
+
+func get_tile2(x, y):
+\treturn self.tile_grid[int(x)][int(y)]
+''',
+        "Map model allocation-free direct tile lookup",
+    )
+
+
+def patch_movement_marker_cached_keys() -> None:
+    replace_once(
+        MOVEMENT_MARKERS,
+        '''\tif not self.marker_exists(tile.position) and tile.can_acommodate_unit(unit):
+\t\tself.place_movement_marker(tile.position)
+
+\tif self.marker_exists(tile.position):
+\t\tself.colour_marker(tile, unit, ap_limit)
+''',
+        '''\tif not self.marker_exists(tile) and tile.can_acommodate_unit(unit):
+\t\tself.place_movement_marker(tile)
+
+\tif self.marker_exists(tile):
+\t\tself.colour_marker(tile, unit, ap_limit)
+''',
+        "Movement marker cached-key hot path",
+    )
+
+    replace_once(
+        MOVEMENT_MARKERS,
+        '''func marker_exists(marker_position):
+\treturn self.created_markers.has(str(marker_position.x) + "_" + str(marker_position.y))
+
+func place_movement_marker(marker_position):
+\tvar new_marker
+\tif self.marker_pool.is_empty():
+\t\tnew_marker = self.marker_template.instantiate()
+\t\tself.add_child(new_marker)
+\telse:
+\t\tnew_marker = self.marker_pool.pop_back()
+\t\tnew_marker.show()
+
+\tvar placement = self.map_obj.map_to_local(marker_position)
+\tnew_marker.set_position(placement)
+
+\tself.created_markers[str(marker_position.x) + "_" + str(marker_position.y)] = new_marker
+''',
+        '''func marker_exists(tile):
+\treturn self.created_markers.has(tile.cache_key)
+
+func place_movement_marker(tile):
+\tvar new_marker
+\tif self.marker_pool.is_empty():
+\t\tnew_marker = self.marker_template.instantiate()
+\t\tself.add_child(new_marker)
+\telse:
+\t\tnew_marker = self.marker_pool.pop_back()
+\t\tnew_marker.show()
+
+\tvar placement = self.map_obj.map_to_local(tile.position)
+\tnew_marker.set_position(placement)
+
+\tself.created_markers[tile.cache_key] = new_marker
+''',
+        "Movement marker allocation-free marker keys",
+    )
+
+    replace_once(
+        MOVEMENT_MARKERS,
+        '''func colour_marker(tile, unit, ap_limit):
+\tvar marker
+\tvar key = self._get_key(tile)
+
+\tmarker = self.created_markers[key]
+
+\tif self.get_tile_cost(tile) == unit.move:
+\t\tmarker.set_material(self.colour_materials["neutral"])
+\t\treturn
+
+\tif self.get_tile_cost(tile) == ap_limit:
+\t\tmarker.set_material(self.colour_materials["green"])
+\t\treturn
+''',
+        '''func colour_marker(tile, unit, ap_limit):
+\tvar marker
+\tvar key = self._get_key(tile)
+\tvar tile_cost = self.get_tile_cost(tile)
+
+\tmarker = self.created_markers[key]
+
+\tif tile_cost == unit.move:
+\t\tmarker.set_material(self.colour_materials["neutral"])
+\t\treturn
+
+\tif tile_cost == ap_limit:
+\t\tmarker.set_material(self.colour_materials["green"])
+\t\treturn
+''',
+        "Movement marker cached tile-cost read",
+    )
+
+
 def patch_movement_marker_pool() -> None:
     replace_once(
         MOVEMENT_MARKERS,
@@ -1744,6 +1900,7 @@ def main() -> None:
     patch_ai_entity_snapshot()
     patch_neighbour_iteration()
     patch_model_tile_list_queries()
+    patch_direct_tile_grid()
     patch_direction_lookup()
     patch_hot_dictionary_reuse()
     patch_ai_path_cache()
@@ -1756,6 +1913,7 @@ def main() -> None:
     patch_interaction_marker_pool()
     patch_ability_marker_pool()
     patch_marker_collection_reuse()
+    patch_movement_marker_cached_keys()
 
 
 if __name__ == "__main__":
