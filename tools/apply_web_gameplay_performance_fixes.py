@@ -13,6 +13,7 @@ MAP_TILE = ROOT / "scenes/map/tile.gd"
 AI_PATHFINDER = ROOT / "scenes/board/logic/ai/pathfinder.gd"
 AI_COLLECTOR = ROOT / "scenes/board/logic/ai/collector.gd"
 AI_UNIT_BRAIN = ROOT / "scenes/board/logic/ai/brains/abstract_unit_brain.gd"
+AI_BUILDING_BRAIN = ROOT / "scenes/board/logic/ai/brains/abstract_building_brain.gd"
 MAP_MODEL = ROOT / "scenes/map/model.gd"
 UNIT_SCRIPT = ROOT / "scenes/tiles/units/unit.gd"
 CAMERA = ROOT / "scenes/camera.gd"
@@ -1773,6 +1774,247 @@ const DEADZONE_SQUARED = DEADZONE * DEADZONE
     )
 
 
+
+def patch_unit_reset_stat_reads() -> None:
+    replace_once(
+        UNIT_SCRIPT,
+        '''func _apply_experience_modifiers(stats):
+\tif self.level > 1:
+\t\tstats["armor"] += 1
+\tif self.level > 2:
+\t\tstats["max_move"] += 1
+
+\treturn stats
+
+func get_move():
+''',
+        '''func _apply_experience_modifiers(stats):
+\tif self.level > 1:
+\t\tstats["armor"] += 1
+\tif self.level > 2:
+\t\tstats["max_move"] += 1
+
+\treturn stats
+
+func get_modified_max_hp():
+\treturn self.max_hp + self.modifiers.get("max_hp", 0)
+
+func get_modified_max_move():
+\tvar value = self.max_move + self.modifiers.get("max_move", 0)
+\tif self.level > 2:
+\t\tvalue += 1
+\treturn value
+
+func get_modified_max_attacks():
+\treturn self.max_attacks + self.modifiers.get("max_attacks", 0)
+
+func get_move():
+''',
+        "Unit direct modified max-stat helpers",
+    )
+
+    replace_once(
+        UNIT_SCRIPT,
+        '''func reset():
+\tvar stats = self.get_stats_with_modifiers()
+
+\tself.hp = stats["max_hp"]
+\tself.move = stats["max_move"]
+\tself.attacks = stats["max_attacks"]
+\tself._update_healthbar()
+\tself._update_energy()
+\tself._update_level()
+''',
+        '''func reset():
+\tself.hp = self.get_modified_max_hp()
+\tself.move = self.get_modified_max_move()
+\tself.attacks = self.get_modified_max_attacks()
+\tself._update_healthbar()
+\tself._update_energy()
+\tself._update_level()
+''',
+        "Unit reset allocation-free stat reads",
+    )
+
+    replace_once(
+        UNIT_SCRIPT,
+        '''func reset_move():
+\tvar stats = self.get_stats_with_modifiers()
+\tself.move = stats["max_move"]
+\tself.restore_highlight()
+\tself._update_energy()
+
+func replenish_moves():
+\tself.reset_move()
+\tvar stats = self.get_stats_with_modifiers()
+\tself.attacks = stats["max_attacks"]
+''',
+        '''func reset_move():
+\tself.move = self.get_modified_max_move()
+\tself.restore_highlight()
+\tself._update_energy()
+
+func replenish_moves():
+\tself.reset_move()
+\tself.attacks = self.get_modified_max_attacks()
+''',
+        "Unit replenish allocation-free stat reads",
+    )
+
+    replace_once(
+        UNIT_SCRIPT,
+        '''func heal(value):
+\tvar stats = self.get_stats_with_modifiers()
+\tself.hp += value
+\tif self.hp > stats["max_hp"]:
+\t\tself.hp = stats["max_hp"]
+\tself._update_healthbar()
+''',
+        '''func heal(value):
+\tvar max_hp_value = self.get_modified_max_hp()
+\tself.hp += value
+\tif self.hp > max_hp_value:
+\t\tself.hp = max_hp_value
+\tself._update_healthbar()
+''',
+        "Unit heal allocation-free max-hp read",
+    )
+
+
+def patch_building_ai_allocations() -> None:
+    replace_once(
+        AI_BUILDING_BRAIN,
+        '''const UNITS_SOFT_LIMIT = 10
+
+var action_template = preload("res://scenes/board/logic/ai/actions/use_ability_action.gd")
+''',
+        '''const UNITS_SOFT_LIMIT = 10
+const TEMPLATE_UNIT_CLASS = {
+\t"blue_infantry" : "infantry",
+\t"blue_tank" : "tank",
+\t"blue_heli" : "heli",
+\t"blue_m_inf" : "mobile_infantry",
+\t"blue_rocket" : "rocket_artillery",
+\t"blue_scout" : "scout",
+\t"blue_truck" : "npc",
+\t"red_infantry" : "infantry",
+\t"red_tank" : "tank",
+\t"red_heli" : "heli",
+\t"red_m_inf" : "mobile_infantry",
+\t"red_rocket" : "rocket_artillery",
+\t"red_scout" : "scout",
+\t"red_truck" : "npc",
+\t"green_infantry" : "infantry",
+\t"green_tank" : "tank",
+\t"green_heli" : "heli",
+\t"green_m_inf" : "mobile_infantry",
+\t"green_rocket" : "rocket_artillery",
+\t"green_scout" : "scout",
+\t"green_truck" : "npc",
+\t"yellow_infantry" : "infantry",
+\t"yellow_tank" : "tank",
+\t"yellow_heli" : "heli",
+\t"yellow_m_inf" : "mobile_infantry",
+\t"yellow_rocket" : "rocket_artillery",
+\t"yellow_scout" : "scout",
+\t"yellow_truck" : "npc",
+\t"npc_president" : "npc",
+\t"npc_lord" : "npc",
+\t"npc_chancellor" : "npc",
+\t"npc_king" : "npc",
+\t"hero_general" : "hero",
+\t"hero_commando" : "hero",
+\t"hero_gentleman" : "hero",
+\t"hero_noble" : "hero",
+\t"hero_admiral" : "hero",
+\t"hero_captain" : "hero",
+\t"hero_prince" : "hero",
+\t"hero_warlord" : "hero"
+}
+
+var action_template = preload("res://scenes/board/logic/ai/actions/use_ability_action.gd")
+''',
+        "Building AI static unit-class lookup",
+    )
+
+    replace_once(
+        AI_BUILDING_BRAIN,
+        '''func _get_spawn_points(entity_tile):
+\tvar spawn_points = []
+
+\tfor neighbour in entity_tile.neighbours:
+\t\tif entity_tile.neighbours[neighbour].can_acommodate_unit():
+\t\t\tspawn_points.append(entity_tile.neighbours[neighbour])
+
+\treturn spawn_points
+''',
+        '''func _get_spawn_points(entity_tile):
+\tvar spawn_points = []
+
+\tfor neighbour in entity_tile.neighbour_tiles:
+\t\tif neighbour.can_acommodate_unit():
+\t\t\tspawn_points.append(neighbour)
+
+\treturn spawn_points
+''',
+        "Building AI allocation-free neighbour iteration",
+    )
+
+    replace_once(
+        AI_BUILDING_BRAIN,
+        '''func _map_template_name(template_name):
+\tvar map = {
+\t\t"blue_infantry" : "infantry",
+\t\t"blue_tank" : "tank",
+\t\t"blue_heli" : "heli",
+\t\t"blue_m_inf" : "mobile_infantry",
+\t\t"blue_rocket" : "rocket_artillery",
+\t\t"blue_scout" : "scout",
+\t\t"blue_truck" : "npc",
+\t\t"red_infantry" : "infantry",
+\t\t"red_tank" : "tank",
+\t\t"red_heli" : "heli",
+\t\t"red_m_inf" : "mobile_infantry",
+\t\t"red_rocket" : "rocket_artillery",
+\t\t"red_scout" : "scout",
+\t\t"red_truck" : "npc",
+\t\t"green_infantry" : "infantry",
+\t\t"green_tank" : "tank",
+\t\t"green_heli" : "heli",
+\t\t"green_m_inf" : "mobile_infantry",
+\t\t"green_rocket" : "rocket_artillery",
+\t\t"green_scout" : "scout",
+\t\t"green_truck" : "npc",
+\t\t"yellow_infantry" : "infantry",
+\t\t"yellow_tank" : "tank",
+\t\t"yellow_heli" : "heli",
+\t\t"yellow_m_inf" : "mobile_infantry",
+\t\t"yellow_rocket" : "rocket_artillery",
+\t\t"yellow_scout" : "scout",
+\t\t"yellow_truck" : "npc",
+\t\t"npc_president" : "npc",
+\t\t"npc_lord" : "npc",
+\t\t"npc_chancellor" : "npc",
+\t\t"npc_king" : "npc",
+\t\t"hero_general" : "hero",
+\t\t"hero_commando" : "hero",
+\t\t"hero_gentleman" : "hero",
+\t\t"hero_noble" : "hero",
+\t\t"hero_admiral" : "hero",
+\t\t"hero_captain" : "hero",
+\t\t"hero_prince" : "hero",
+\t\t"hero_warlord" : "hero"
+\t}
+
+\treturn map[template_name]
+''',
+        '''func _map_template_name(template_name):
+\treturn self.TEMPLATE_UNIT_CLASS[template_name]
+''',
+        "Building AI cached unit-class lookup",
+    )
+
+
 def patch_movement_marker_pool() -> None:
     replace_once(
         MOVEMENT_MARKERS,
@@ -2104,6 +2346,8 @@ def main() -> None:
     patch_hot_dictionary_reuse()
     patch_ai_path_cache()
     patch_unit_hot_stat_reads()
+    patch_unit_reset_stat_reads()
+    patch_building_ai_allocations()
     patch_idle_transform_updates()
     patch_camera_input_hot_path()
     patch_centralized_tile_settings()
