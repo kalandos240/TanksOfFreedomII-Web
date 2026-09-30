@@ -7,6 +7,7 @@ const NORTH = "n"
 const SOUTH = "s"
 
 var position = Vector2i(0, 0)
+var cache_key = ""
 
 var ground = preload("res://scenes/map/tile_fragment.gd").new()
 var frame = preload("res://scenes/map/tile_fragment.gd").new()
@@ -25,6 +26,7 @@ var is_state_modified = false
 func _init(x, y):
 	self.position.x = x
 	self.position.y = y
+	self.cache_key = str(x) + "_" + str(y)
 
 	self.fragments  = [
 		self.ground,

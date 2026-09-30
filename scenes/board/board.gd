@@ -48,7 +48,22 @@ func _ready():
 	self.set_up_ui()
 	self.set_up_map()
 	self.set_up_board()
+	if OS.has_feature("web"):
+		self.call_deferred("_prewarm_web_fx")
 	_ready_start()
+
+func _prewarm_web_fx():
+	var prewarm_explosion = self.explosion_template.instantiate()
+	self.explosion_anchor.add_child(prewarm_explosion)
+	prewarm_explosion.hide()
+	await self.get_tree().process_frame
+	prewarm_explosion.queue_free()
+
+	var prewarm_projectile = self.projectile_template.instantiate()
+	self.explosion_anchor.add_child(prewarm_projectile)
+	prewarm_projectile.hide()
+	await self.get_tree().process_frame
+	prewarm_projectile.queue_free()
 
 
 func _ready_start():

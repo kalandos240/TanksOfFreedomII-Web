@@ -71,7 +71,7 @@ func add_path_root(root_tile):
 	self.tile_path[self._get_key(root_tile)] = null
 
 func _get_key(tile):
-	return str(tile.position.x) + "_" + str(tile.position.y)
+	return tile.cache_key
 
 func is_tile_reachable(destination_tile):
 	var key = self._get_key(destination_tile)
