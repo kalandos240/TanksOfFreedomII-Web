@@ -2,6 +2,7 @@
 var visited_tiles = {}
 var explored_tiles = {}
 var tile_path = {}
+var path_cache = {}
 
 var enemy_units = {}
 var enemy_buildings = {}
@@ -14,6 +15,7 @@ func reset():
 	self.visited_tiles.clear()
 	self.explored_tiles.clear()
 	self.tile_path.clear()
+	self.path_cache.clear()
 	self.enemy_units.clear()
 	self.enemy_buildings.clear()
 	self.own_units.clear()
@@ -78,15 +80,21 @@ func is_tile_reachable(destination_tile):
 	return self.tile_path.has(key)
 
 func get_path_to_tile(destination_tile):
+	var destination_key = self._get_key(destination_tile)
+	if self.path_cache.has(destination_key):
+		return self.path_cache[destination_key]
+
 	var path = []
-	var key = self._get_key(destination_tile)
+	var key = destination_key
 
 	while key != null:
 		path.append(key)
 		if not self.tile_path.has(key):
-			return []
+			self.path_cache[destination_key] = []
+			return self.path_cache[destination_key]
 		key = self.tile_path[key]
 
+	self.path_cache[destination_key] = path
 	return path
 
 func _scout_tile(tile, side, team):

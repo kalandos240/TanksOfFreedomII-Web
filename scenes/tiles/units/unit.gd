@@ -160,8 +160,7 @@ func _apply_experience_modifiers(stats):
 	return stats
 
 func get_move():
-	var stats = self.get_stats_with_modifiers()
-	return stats["move"]
+	return self.move + self.modifiers.get("move", 0)
 
 func has_moves():
 	return self.move > 0
@@ -313,12 +312,13 @@ func is_damaged() -> bool:
 
 
 func get_attack():
-	var stats = self.get_stats_with_modifiers()
-	return stats["attack"]
+	return self.attack + self.modifiers.get("attack", 0)
 
 func get_armor():
-	var stats = self.get_stats_with_modifiers()
-	return stats["armor"]
+	var value = self.armor + self.modifiers.get("armor", 0)
+	if self.level > 1:
+		value += 1
+	return value
 
 func remove_highlight():
 	self.set_side_material(self.desaturated_material)
