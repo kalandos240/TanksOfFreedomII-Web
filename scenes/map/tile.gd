@@ -20,6 +20,7 @@ var damage = preload("res://scenes/map/tile_fragment.gd").new()
 var fragments = []
 
 var neighbours = {}
+var neighbour_tiles = []
 
 var is_state_modified = false
 
@@ -74,6 +75,7 @@ func is_selectable(side):
 
 func add_neighbour(direction, tile):
 	self.neighbours[direction] = tile
+	self.neighbour_tiles.append(tile)
 
 func get_neighbour(direction):
 	if self.neighbours.has(direction):
@@ -82,10 +84,7 @@ func get_neighbour(direction):
 	return null
 
 func is_neighbour(tile):
-	for direction in self.neighbours.keys():
-		if self.neighbours[direction] == tile:
-			return true
-	return false
+	return tile in self.neighbour_tiles
 
 
 func can_acommodate_unit(moving_unit=null):
@@ -155,21 +154,21 @@ func has_friendly_building(side):
 	return false
 
 func neighbours_enemy_unit(side, team=null):
-	for direction in self.neighbours.keys():
-		if self.neighbours[direction].has_enemy_unit(side, team):
+	for neighbour in self.neighbour_tiles:
+		if neighbour.has_enemy_unit(side, team):
 			return true
 	return false
 
 func can_attack_neightbour_enemy_unit(attacking_unit):
-	for direction in self.neighbours.keys():
-		if self.neighbours[direction].has_enemy_unit(attacking_unit.side, attacking_unit.team):
-			if attacking_unit.can_attack(self.neighbours[direction].unit.tile):
+	for neighbour in self.neighbour_tiles:
+		if neighbour.has_enemy_unit(attacking_unit.side, attacking_unit.team):
+			if attacking_unit.can_attack(neighbour.unit.tile):
 				return true
 	return false
 
 func neighbours_enemy_building(side, team=null):
-	for direction in self.neighbours.keys():
-		if self.neighbours[direction].has_enemy_building(side, team):
+	for neighbour in self.neighbour_tiles:
+		if neighbour.has_enemy_building(side, team):
 			return true
 	return false
 

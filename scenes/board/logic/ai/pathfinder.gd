@@ -11,15 +11,15 @@ var allied_units = {}
 var allied_buildings = {}
 
 func reset():
-	self.visited_tiles = {}
-	self.explored_tiles = {}
-	self.tile_path = {}
-	self.enemy_units = {}
-	self.enemy_buildings = {}
-	self.own_units = {}
-	self.own_buildings = {}
-	self.allied_units = {}
-	self.allied_buildings = {}
+	self.visited_tiles.clear()
+	self.explored_tiles.clear()
+	self.tile_path.clear()
+	self.enemy_units.clear()
+	self.enemy_buildings.clear()
+	self.own_units.clear()
+	self.own_buildings.clear()
+	self.allied_units.clear()
+	self.allied_buildings.clear()
 
 func explore(source_tile, distance):
 	self.reset()
@@ -52,8 +52,8 @@ func expand_from_tile(tile, depth, reach_cost, unit):
 	if depth < 1:
 		return
 
-	for key in tile.neighbours.keys():
-		neighbour = tile.get_neighbour(key)
+	for neighbour_tile in tile.neighbour_tiles:
+		neighbour = neighbour_tile
 
 		neighbour_cost = self.get_tile_cost(neighbour)
 

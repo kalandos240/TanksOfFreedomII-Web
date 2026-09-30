@@ -29,15 +29,16 @@ func _gather_all_actions():
 	if ap <= 0:
 		return []
 
-	var buildings = self.board.map.model.get_player_buildings_tiles(side)
-	var units = self.board.map.model.get_player_units_tiles(side)
+	var entity_snapshot = self.board.map.model.get_ai_entity_snapshot(side, team)
+	var buildings = entity_snapshot["own_buildings"]
+	var units = entity_snapshot["own_units"]
 
 	#if OS.is_debug_build():
 	#	print("Units: " + str(units.size()))
 	#	print("Buildings: " + str(buildings.size()))
 
-	var enemy_buildings = self.board.map.model.get_enemy_buildings_tiles(side, team)
-	var enemy_units = self.board.map.model.get_enemy_units_tiles(side, team)
+	var enemy_buildings = entity_snapshot["enemy_buildings"]
+	var enemy_units = entity_snapshot["enemy_units"]
 
 	var buildings_actions = await self._gather_building_actions(buildings, enemy_buildings, enemy_units, buildings, units, ap)
 

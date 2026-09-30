@@ -4,6 +4,7 @@ const SIZE = 40
 var tile_template = preload("res://scenes/map/tile.gd")
 
 var tiles = {}
+var tile_list = []
 var scripts = {
 	"stories" : {},
 	"triggers" : {}
@@ -13,7 +14,9 @@ var metadata = {}
 func _init():
 	for x in range(self.SIZE):
 		for y in range(self.SIZE):
-			self.tiles[str(x) + "_" + str(y)] = self.tile_template.new(x, y)
+			var tile = self.tile_template.new(x, y)
+			self.tiles[str(x) + "_" + str(y)] = tile
+			self.tile_list.append(tile)
 	self.connect_neightbours()
 
 func wipe_metadata():
@@ -122,6 +125,29 @@ func get_enemy_buildings_tiles(side, team=null):
 			buildings.append(self.tiles[i])
 
 	return buildings
+
+func get_ai_entity_snapshot(side, team=null):
+	var snapshot = {
+		"own_buildings": [],
+		"own_units": [],
+		"enemy_buildings": [],
+		"enemy_units": [],
+	}
+
+	for tile in self.tile_list:
+		if tile.unit.is_present():
+			if tile.unit.tile.side == side:
+				snapshot["own_units"].append(tile)
+			elif team == null or tile.unit.tile.team != team:
+				snapshot["enemy_units"].append(tile)
+
+		if tile.building.is_present():
+			if tile.building.tile.side == side:
+				snapshot["own_buildings"].append(tile)
+			elif team == null or tile.building.tile.team != team:
+				snapshot["enemy_buildings"].append(tile)
+
+	return snapshot
 
 func ingest_scripts(incoming_scripts):
 	if incoming_scripts == null or incoming_scripts.is_empty():

@@ -217,13 +217,13 @@ func _move_action(entity_tile, path, unit_range):
 
 func _get_interaction_tiles(tile, source_tile):
 	var tiles = []
-	for neighbour in tile.neighbours:
-		if not tile.neighbours[neighbour].can_acommodate_unit(source_tile.unit.tile):
+	for neighbour in tile.neighbour_tiles:
+		if not neighbour.can_acommodate_unit(source_tile.unit.tile):
 			continue
-		if not self.pathfinder.is_tile_reachable(tile.neighbours[neighbour]):
+		if not self.pathfinder.is_tile_reachable(neighbour):
 			continue
 
-		tiles.append(tile.neighbours[neighbour])
+		tiles.append(neighbour)
 
 	return tiles
 
