@@ -8,6 +8,8 @@ BOARD = ROOT / "scenes/board/board.gd"
 MOVEMENT_MARKERS = ROOT / "scenes/board/logic/markers/movement_markers.gd"
 PATH_MARKERS = ROOT / "scenes/board/logic/markers/path_markers.gd"
 INTERACTION_MARKERS = ROOT / "scenes/board/logic/markers/interaction_markers.gd"
+MAP_TILE = ROOT / "scenes/map/tile.gd"
+AI_PATHFINDER = ROOT / "scenes/board/logic/ai/pathfinder.gd"
 
 
 def replace_once(path: Path, old: str, new: str, label: str) -> None:
@@ -50,6 +52,86 @@ def patch_board_hover() -> None:
 \t\t\t\tself.path_markers.reset()
 ''',
         "Board hover/path repeat guard",
+    )
+
+
+
+def patch_board_fx_prewarm() -> None:
+    replace_once(
+        BOARD,
+        '''func _ready():
+\tself.set_up_ui()
+\tself.set_up_map()
+\tself.set_up_board()
+\t_ready_start()
+''',
+        '''func _ready():
+\tself.set_up_ui()
+\tself.set_up_map()
+\tself.set_up_board()
+\tif OS.has_feature("web"):
+\t\tself.call_deferred("_prewarm_web_fx")
+\t_ready_start()
+
+func _prewarm_web_fx():
+\tvar prewarm_explosion = self.explosion_template.instantiate()
+\tself.explosion_anchor.add_child(prewarm_explosion)
+\tprewarm_explosion.hide()
+\tawait self.get_tree().process_frame
+\tprewarm_explosion.queue_free()
+
+\tvar prewarm_projectile = self.projectile_template.instantiate()
+\tself.explosion_anchor.add_child(prewarm_projectile)
+\tprewarm_projectile.hide()
+\tawait self.get_tree().process_frame
+\tprewarm_projectile.queue_free()
+''',
+        "Board Web FX prewarm",
+    )
+
+
+def patch_cached_tile_keys() -> None:
+    replace_once(
+        MAP_TILE,
+        'var position = Vector2i(0, 0)\n',
+        'var position = Vector2i(0, 0)\nvar cache_key = ""\n',
+        "Map tile cached key state",
+    )
+
+    replace_once(
+        MAP_TILE,
+        '''func _init(x, y):
+\tself.position.x = x
+\tself.position.y = y
+''',
+        '''func _init(x, y):
+\tself.position.x = x
+\tself.position.y = y
+\tself.cache_key = str(x) + "_" + str(y)
+''',
+        "Map tile cached key initialization",
+    )
+
+    replace_once(
+        MOVEMENT_MARKERS,
+        '''func _get_key(tile):
+\treturn str(tile.position.x) + "_" + str(tile.position.y)
+''',
+        '''func _get_key(tile):
+\treturn tile.cache_key
+''',
+        "Movement marker cached tile keys",
+    )
+
+    replace_once(
+        AI_PATHFINDER,
+        '''func _get_key(tile):
+\treturn str(tile.position.x) + "_" + str(tile.position.y)
+''',
+        '''func _get_key(tile):
+\treturn tile.cache_key
+''',
+        "AI pathfinder cached tile keys",
     )
 
 
@@ -374,6 +456,8 @@ func _prewarm_marker_pools():
 
 def main() -> None:
     patch_board_hover()
+    patch_board_fx_prewarm()
+    patch_cached_tile_keys()
     patch_movement_marker_pool()
     patch_path_marker_pool_and_cache()
     patch_interaction_marker_pool()
