@@ -72,6 +72,8 @@ func snap_tile_box():
 	var placement = self.map_to_local(self.tile_box_position)
 
 	placement.y = box_position.y
+	if box_position == placement:
+		return
 
 	self.tile_box.set_position(placement)
 

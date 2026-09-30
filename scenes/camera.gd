@@ -79,6 +79,7 @@ var camera_zoom_fraction = null
 
 var shakes_left = 0
 var last_shake_time = 0
+var shake_needs_reset = false
 
 var snap_tile_box_to_camera = true
 var mouse_drag = false
@@ -459,8 +460,12 @@ func set_camera_zoom(fraction):
 func shake():
 	self.shakes_left = 3
 	self.last_shake_time = 900.0
+	self.shake_needs_reset = true
 
 func _perform_shake(delta):
+	if self.shakes_left <= 0 and not self.shake_needs_reset:
+		return
+
 	var shake_offset = Vector2(0, 0)
 	self.last_shake_time += delta
 
@@ -470,6 +475,8 @@ func _perform_shake(delta):
 			self.shakes_left -= 1
 			shake_offset.x = self.SHAKE_MAX_MAGNITUDE * randf_range(-1, 1)
 			shake_offset.y = self.SHAKE_MAX_MAGNITUDE * randf_range(-1, 1)
+		else:
+			self.shake_needs_reset = false
 
 		self._set_camera_translation(self.camera_lens, shake_offset)
 		self._set_camera_translation(self.camera_tof, shake_offset)
