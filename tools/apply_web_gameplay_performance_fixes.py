@@ -19,6 +19,8 @@ UNIT_SCRIPT = ROOT / "scenes/tiles/units/unit.gd"
 CAMERA = ROOT / "scenes/camera.gd"
 MAP_SCENE = ROOT / "scenes/map/map.gd"
 EXPLOSION_SCRIPT = ROOT / "scenes/fx/explosion.gd"
+MOUSE_LAYER = ROOT / "scripts/services/mouse_layer.gd"
+MOUSE_COLLISION = ROOT / "scenes/tiles/ground/mouse_collision.gd"
 
 
 def replace_once(path: Path, old: str, new: str, label: str) -> None:
@@ -2015,6 +2017,82 @@ var action_template = preload("res://scenes/board/logic/ai/actions/use_ability_a
     )
 
 
+
+def patch_mouse_layer_node_count() -> None:
+    replace_once(
+        MOUSE_LAYER,
+        '''var initialized = false
+var mouse_layer = Node3D.new()
+var ground_points = {}
+var dummy_ground_template = preload("res://scenes/tiles/ground/base_ground.tscn")
+''',
+        '''var initialized = false
+var mouse_layer = Node3D.new()
+var ground_points = {}
+var mouse_collision_template = preload("res://scenes/tiles/ground/mouse_collision.tscn")
+''',
+        "Mouse layer direct collision template",
+    )
+
+    replace_once(
+        MOUSE_LAYER,
+        '''func initialize(size, tile_size):
+\tif self.initialized:
+\t\treturn
+
+\tself.initialized = true
+\tvar key
+\tfor x in range(size):
+\t\tfor y in range(size):
+\t\t\tkey = str(x) + "_" + str(y)
+\t\t\tself.ground_points[key] = self.dummy_ground_template.instantiate()
+\t\t\tself.mouse_layer.add_child(self.ground_points[key])
+\t\t\tself.ground_points[key].prepare()
+\t\t\tself.ground_points[key].mouse_collision.connect("mouse_entered", Callable(self.ground_points[key].mouse_collision, "_on_mouse_collision_mouse_entered"))
+\t\t\tself.ground_points[key].set_position(Vector3(x * tile_size, 0, y * tile_size))
+''',
+        '''func initialize(size, tile_size):
+\tif self.initialized:
+\t\treturn
+
+\tself.initialized = true
+\tvar key
+\tfor x in range(size):
+\t\tfor y in range(size):
+\t\t\tkey = str(x) + "_" + str(y)
+\t\t\tvar ground_point = self.mouse_collision_template.instantiate()
+\t\t\tself.ground_points[key] = ground_point
+\t\t\tself.mouse_layer.add_child(ground_point)
+\t\t\tground_point.mouse_entered.connect(ground_point._on_mouse_collision_mouse_entered)
+
+\t\t\tvar point_position = ground_point.position
+\t\t\tpoint_position.x = x * tile_size
+\t\t\tpoint_position.z = y * tile_size
+\t\t\tground_point.position = point_position
+''',
+        "Mouse layer wrapper-node removal",
+    )
+
+    replace_once(
+        MOUSE_COLLISION,
+        '''var tile_position = Vector2(0, 0)
+var map = null
+
+func _on_mouse_collision_mouse_entered():
+''',
+        '''var tile_position = Vector2(0, 0)
+var map = null
+
+func bind_ground_for_mouse(map_object, new_tile_position):
+\tself.map = map_object
+\tself.tile_position = new_tile_position
+
+func _on_mouse_collision_mouse_entered():
+''',
+        "Mouse collision direct map binding",
+    )
+
+
 def patch_movement_marker_pool() -> None:
     replace_once(
         MOVEMENT_MARKERS,
@@ -2351,6 +2429,7 @@ def main() -> None:
     patch_idle_transform_updates()
     patch_camera_input_hot_path()
     patch_centralized_tile_settings()
+    patch_mouse_layer_node_count()
     patch_healthbar_viewport_updates()
     patch_explosion_pool()
     patch_movement_marker_pool()
