@@ -34,17 +34,17 @@ func _prewarm_marker_pool():
 			await self.get_tree().process_frame
 
 func reset():
-	self.explored_tiles = {}
-	self.tile_path = {}
+	self.explored_tiles.clear()
+	self.tile_path.clear()
 	self.destroy_markers()
 
 func destroy_markers():
 	var marker
-	for key in self.created_markers.keys():
+	for key in self.created_markers:
 		marker = self.created_markers[key]
 		marker.hide()
 		self.marker_pool.append(marker)
-	self.created_markers = {}
+	self.created_markers.clear()
 
 func show_unit_movement_markers_for_tile(tile, ap_limit):
 	self.reset()
@@ -76,8 +76,8 @@ func expand_from_tile(tile, depth, reach_cost, unit, ap_limit):
 	if depth < 1 || not tile.can_pass_through(unit) || reach_cost + 1 > ap_limit:
 		return
 
-	for key in tile.neighbours.keys():
-		neighbour = tile.get_neighbour(key)
+	for neighbour_tile in tile.neighbour_tiles:
+		neighbour = neighbour_tile
 
 		neighbour_cost = self.get_tile_cost(neighbour)
 

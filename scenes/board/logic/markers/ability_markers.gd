@@ -15,7 +15,9 @@ var colour_materials = {
 }
 
 var created_markers = {}
+var marker_pool = []
 var extra_markers = []
+var range_marker_pool = []
 var tiles_in_range = {}
 var explored_tiles_distance = {}
 
@@ -28,15 +30,16 @@ func reset():
 
 func destroy_markers():
 	var marker
-	for key in self.created_markers.keys():
+	for key in self.created_markers:
 		marker = self.created_markers[key]
 		marker.hide()
-		marker.queue_free()
-	self.created_markers = {}
+		self.marker_pool.append(marker)
+	self.created_markers.clear()
+
 	for extra_marker in self.extra_markers:
 		extra_marker.hide()
-		extra_marker.queue_free()
-	self.extra_markers = []
+		self.range_marker_pool.append(extra_marker)
+	self.extra_markers.clear()
 
 func show_ability_markers_for_tile(ability, tile):
 	self.destroy_markers()
@@ -46,9 +49,7 @@ func show_ability_markers_for_tile(ability, tile):
 		self.show_hero_markers_for_tile(tile, ability)
 	
 func show_production_markers_for_tile(tile):
-	var neighbour
-	for direction in tile.neighbours.keys():
-		neighbour = tile.neighbours[direction]
+	for neighbour in tile.neighbour_tiles:
 		if neighbour.can_acommodate_unit():
 			self.place_marker(neighbour.position)
 
@@ -66,9 +67,10 @@ func show_hero_markers_for_tile(source_tile, ability):
 	self.get_all_tiles_in_ability_range(ability, source_tile)
 	self._draw_ability_range(source_tile, ability.draw_range, ability.in_line)
 
-	for tile in self.tiles_in_range.values():
-		if ability.is_tile_applicable(tile, source_tile):
-			self.place_marker(tile.position, ability.marker_colour)
+	for tile_key in self.tiles_in_range:
+		var range_tile = self.tiles_in_range[tile_key]
+		if ability.is_tile_applicable(range_tile, source_tile):
+			self.place_marker(range_tile.position, ability.marker_colour)
 
 func expand_from_tile(tile, depth, distance):
 	if depth < 1:
@@ -78,7 +80,7 @@ func expand_from_tile(tile, depth, distance):
 	var neighbour_distance = null
 
 
-	for neighbour in tile.neighbours.values():
+	for neighbour in tile.neighbour_tiles:
 		key = self._get_key(neighbour)
 		if self.explored_tiles_distance.has(key):
 			neighbour_distance = self.explored_tiles_distance[key]
@@ -92,8 +94,14 @@ func marker_exists(marker_position):
 	return self.created_markers.has(str(marker_position.x) + "_" + str(marker_position.y))
 
 func place_marker(marker_position, colour="green"):
-	var new_marker = self.marker_template.instantiate()
-	self.add_child(new_marker)
+	var new_marker
+	if self.marker_pool.is_empty():
+		new_marker = self.marker_template.instantiate()
+		self.add_child(new_marker)
+	else:
+		new_marker = self.marker_pool.pop_back()
+		new_marker.show()
+
 	var placement = self.map_obj.map_to_local(marker_position)
 	new_marker.set_position(placement)
 
@@ -101,7 +109,7 @@ func place_marker(marker_position, colour="green"):
 	new_marker.set_material(self.colour_materials[colour])
 
 func _get_key(tile):
-	return str(tile.position.x) + "_" + str(tile.position.y)
+	return tile.cache_key
 
 func _draw_ability_range(source_tile, ability_range, in_line):
 	if ability_range < 1:
@@ -147,8 +155,14 @@ func _draw_ability_range(source_tile, ability_range, in_line):
 					self._place_extra_marker(Vector2(x, y), 270)
 
 func _place_extra_marker(marker_position, marker_rotation):
-	var new_marker = self.range_template.instantiate()
-	self.add_child(new_marker)
+	var new_marker
+	if self.range_marker_pool.is_empty():
+		new_marker = self.range_template.instantiate()
+		self.add_child(new_marker)
+	else:
+		new_marker = self.range_marker_pool.pop_back()
+		new_marker.show()
+
 	var placement = self.map_obj.map_to_local(marker_position)
 	new_marker.set_position(placement)
 	new_marker.set_rotation(Vector3(0, deg_to_rad(marker_rotation), 0))

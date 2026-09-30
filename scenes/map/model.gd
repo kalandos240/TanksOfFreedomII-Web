@@ -38,9 +38,9 @@ func get_tile2(x, y):
 
 func get_dict():
 	var tiles_dict = {}
-	for i in self.tiles.keys():
-		if self.tiles[i].has_content():
-			tiles_dict[i] = self.tiles[i].get_dict()
+	for tile in self.tile_list:
+		if tile.has_content():
+			tiles_dict[tile.cache_key] = tile.get_dict()
 
 	return {
 		"metadata" : self.metadata,
@@ -71,58 +71,58 @@ func connect_neightbours():
 
 func get_player_units(side):
 	var units = []
-	for i in self.tiles.keys():
-		if self.tiles[i].has_friendly_unit(side):
-			units.append(self.tiles[i].unit.tile)
+	for tile in self.tile_list:
+		if tile.has_friendly_unit(side):
+			units.append(tile.unit.tile)
 
 	return units
 
 func get_all_units_tiles():
 	var units_tiles = []
-	for i in self.tiles.keys():
-		if self.tiles[i].unit.is_present():
-			units_tiles.append(self.tiles[i])
+	for tile in self.tile_list:
+		if tile.unit.is_present():
+			units_tiles.append(tile)
 
 	return units_tiles
 
 
 func get_player_buildings(side):
 	var buildings = []
-	for i in self.tiles.keys():
-		if self.tiles[i].has_friendly_building(side):
-			buildings.append(self.tiles[i].building.tile)
+	for tile in self.tile_list:
+		if tile.has_friendly_building(side):
+			buildings.append(tile.building.tile)
 
 	return buildings
 
 func get_player_units_tiles(side):
 	var units = []
-	for i in self.tiles.keys():
-		if self.tiles[i].has_friendly_unit(side):
-			units.append(self.tiles[i])
+	for tile in self.tile_list:
+		if tile.has_friendly_unit(side):
+			units.append(tile)
 
 	return units
 
 func get_player_buildings_tiles(side):
 	var buildings = []
-	for i in self.tiles.keys():
-		if self.tiles[i].has_friendly_building(side):
-			buildings.append(self.tiles[i])
+	for tile in self.tile_list:
+		if tile.has_friendly_building(side):
+			buildings.append(tile)
 
 	return buildings
 
 func get_enemy_units_tiles(side, team=null):
 	var units = []
-	for i in self.tiles.keys():
-		if self.tiles[i].has_enemy_unit(side, team):
-			units.append(self.tiles[i])
+	for tile in self.tile_list:
+		if tile.has_enemy_unit(side, team):
+			units.append(tile)
 
 	return units
 
 func get_enemy_buildings_tiles(side, team=null):
 	var buildings = []
-	for i in self.tiles.keys():
-		if self.tiles[i].has_enemy_building(side, team):
-			buildings.append(self.tiles[i])
+	for tile in self.tile_list:
+		if tile.has_enemy_building(side, team):
+			buildings.append(tile)
 
 	return buildings
 
@@ -156,34 +156,34 @@ func ingest_scripts(incoming_scripts):
 	self.scripts = incoming_scripts
 
 func get_player_bunker_position(side):
-	for i in self.tiles.keys():
-		if self.tiles[i].has_friendly_hq(side):
-			return self.tiles[i].position
+	for tile in self.tile_list:
+		if tile.has_friendly_hq(side):
+			return tile.position
 
 	return null
 
 func get_player_bunkers(side):
 	var bunkers = []
 
-	for i in self.tiles.keys():
-		if self.tiles[i].has_friendly_hq(side):
-			bunkers.append(self.tiles[i])
+	for tile in self.tile_list:
+		if tile.has_friendly_hq(side):
+			bunkers.append(tile)
 
 	return bunkers
 
 func get_player_hero_position(side):
-	for i in self.tiles.keys():
-		if self.tiles[i].has_friendly_hero(side):
-			return self.tiles[i].position
+	for tile in self.tile_list:
+		if tile.has_friendly_hero(side):
+			return tile.position
 
 	return null
 
 func get_player_heroes(side):
 	var heroes = []
 
-	for i in self.tiles.keys():
-		if self.tiles[i].has_friendly_hero(side):
-			heroes.append(self.tiles[i].unit.tile)
+	for tile in self.tile_list:
+		if tile.has_friendly_hero(side):
+			heroes.append(tile.unit.tile)
 
 	return heroes
 
@@ -191,16 +191,16 @@ func get_unit_position(unit):
 	if unit == null:
 		return null
 
-	for i in self.tiles.keys():
-		if self.tiles[i].unit.tile == unit:
-			return [self.tiles[i].position.x, self.tiles[i].position.y]
+	for tile in self.tile_list:
+		if tile.unit.tile == unit:
+			return [tile.position.x, tile.position.y]
 
 	return null
 
 func wipe_all_units():
 	var units = []
-	for i in self.tiles.keys():
-		if self.tiles[i].unit.is_present():
-			self.tiles[i].unit.clear()
+	for tile in self.tile_list:
+		if tile.unit.is_present():
+			tile.unit.clear()
 
 	return units

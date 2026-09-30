@@ -33,16 +33,16 @@ func _prewarm_marker_pool():
 			await self.get_tree().process_frame
 
 func reset():
-	self.last_path = []
+	self.last_path.clear()
 	self.destroy_markers()
 
 func destroy_markers():
 	var marker
-	for key in self.created_markers.keys():
+	for key in self.created_markers:
 		marker = self.created_markers[key]
 		marker.hide()
 		self.marker_pool.append(marker)
-	self.created_markers = {}
+	self.created_markers.clear()
 
 
 func draw_path(path):

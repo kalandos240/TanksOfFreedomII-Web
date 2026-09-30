@@ -37,7 +37,7 @@ func reset():
 
 func destroy_markers():
 	var marker
-	for key in self.created_markers.keys():
+	for key in self.created_markers:
 		marker = self.created_markers[key]
 		marker.hide()
 		var pool_type = marker.get_meta("tof_pool_type", "")
@@ -47,7 +47,7 @@ func destroy_markers():
 			self.capture_marker_pool.append(marker)
 		else:
 			marker.queue_free()
-	self.created_markers = {}
+	self.created_markers.clear()
 
 func show_interaction_markers_for_tile(tile, ap_limit):
 	self.reset()

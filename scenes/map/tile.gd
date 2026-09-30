@@ -173,9 +173,14 @@ func neighbours_enemy_building(side, team=null):
 	return false
 
 func get_direction_to_neighbour(tile):
-	for direction in self.neighbours.keys():
-		if self.neighbours[direction] == tile:
-			return direction
+	if self.neighbours.get(self.EAST) == tile:
+		return self.EAST
+	if self.neighbours.get(self.WEST) == tile:
+		return self.WEST
+	if self.neighbours.get(self.NORTH) == tile:
+		return self.NORTH
+	if self.neighbours.get(self.SOUTH) == tile:
+		return self.SOUTH
 	return null
 
 func can_unit_interact(interacting_unit):
