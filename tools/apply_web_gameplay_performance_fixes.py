@@ -1655,6 +1655,124 @@ def patch_centralized_tile_settings() -> None:
     )
 
 
+
+def patch_camera_input_hot_path() -> None:
+    replace_once(
+        CAMERA,
+        '''const DEADZONE = 0.2
+''',
+        '''const DEADZONE = 0.2
+const DEADZONE_SQUARED = DEADZONE * DEADZONE
+''',
+        "Camera squared deadzone constant",
+    )
+
+    replace_once(
+        CAMERA,
+        '''func _get_touch_distance() -> float:
+\tvar ids = self._touch_points.keys()
+\tif ids.size() < 2:
+\t\treturn 0.0
+\treturn self._touch_points[ids[0]].distance_to(self._touch_points[ids[1]])
+''',
+        '''func _get_touch_distance() -> float:
+\tif self._touch_points.size() < 2:
+\t\treturn 0.0
+
+\tvar first_position = null
+\tfor touch_id in self._touch_points:
+\t\tif first_position == null:
+\t\t\tfirst_position = self._touch_points[touch_id]
+\t\telse:
+\t\t\treturn first_position.distance_to(self._touch_points[touch_id])
+
+\treturn 0.0
+''',
+        "Camera touch-distance allocation removal",
+    )
+
+    replace_once(
+        CAMERA,
+        '''func _physics_process(delta):
+\tif self.paused:
+\t\treturn
+
+\tself._perform_shake(delta)
+
+\tself.process_free_camera_input(delta)
+\tself.process_tof_camera_input(delta)
+\tself.process_aw_camera_input(delta)
+
+\tif self.camera_in_transit or self.ai_operated or self.script_operated:
+\t\treturn
+
+\tself.process_movement_input(delta)
+''',
+        '''func _physics_process(delta):
+\tif self.paused:
+\t\treturn
+
+\tself._perform_shake(delta)
+
+\tmatch self.camera_mode:
+\t\tself.MODE_FREE:
+\t\t\tself.process_free_camera_input(delta)
+\t\tself.MODE_TOF:
+\t\t\tself.process_tof_camera_input(delta)
+\t\tself.MODE_AW:
+\t\t\tself.process_aw_camera_input(delta)
+
+\tif self.camera_in_transit or self.ai_operated or self.script_operated:
+\t\treturn
+
+\tself.process_movement_input(delta)
+''',
+        "Camera active-mode input dispatch",
+    )
+
+    replace_once(
+        CAMERA,
+        '''\tif axis_value.length() > self.DEADZONE && not self.reset_stick:
+\t\tvar cam_position = self.get_position()
+''',
+        '''\tvar axis_length_squared = axis_value.length_squared()
+\tif axis_length_squared > self.DEADZONE_SQUARED && not self.reset_stick:
+\t\tvar cam_position = self.get_position()
+''',
+        "Camera movement squared-length check",
+    )
+
+    replace_once(
+        CAMERA,
+        '''\telif axis_value.length() < self.DEADZONE && self.reset_stick:
+\t\tself.reset_stick = false
+''',
+        '''\telif axis_length_squared < self.DEADZONE_SQUARED && self.reset_stick:
+\t\tself.reset_stick = false
+''',
+        "Camera movement squared-length reset check",
+    )
+
+    replace_once(
+        MAP_SCENE,
+        '''func _manage_mouse_input():
+\tvar gamepad_offset = Vector2(
+\t\tInput.get_joy_axis(0, JOY_AXIS_LEFT_X),
+\t\tInput.get_joy_axis(0, JOY_AXIS_LEFT_Y)
+\t)
+\tif gamepad_offset.length_squared() > 0.1:
+\t\tself.tile_box_mouse = false
+''',
+        '''func _manage_mouse_input():
+\tvar gamepad_x = Input.get_joy_axis(0, JOY_AXIS_LEFT_X)
+\tvar gamepad_y = Input.get_joy_axis(0, JOY_AXIS_LEFT_Y)
+\tif gamepad_x * gamepad_x + gamepad_y * gamepad_y > 0.1:
+\t\tself.tile_box_mouse = false
+''',
+        "Map gamepad polling temporary-vector removal",
+    )
+
+
 def patch_movement_marker_pool() -> None:
     replace_once(
         MOVEMENT_MARKERS,
@@ -1987,6 +2105,7 @@ def main() -> None:
     patch_ai_path_cache()
     patch_unit_hot_stat_reads()
     patch_idle_transform_updates()
+    patch_camera_input_hot_path()
     patch_centralized_tile_settings()
     patch_healthbar_viewport_updates()
     patch_explosion_pool()
