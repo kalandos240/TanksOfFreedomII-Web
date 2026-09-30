@@ -8,6 +8,7 @@ BOARD = ROOT / "scenes/board/board.gd"
 MOVEMENT_MARKERS = ROOT / "scenes/board/logic/markers/movement_markers.gd"
 PATH_MARKERS = ROOT / "scenes/board/logic/markers/path_markers.gd"
 INTERACTION_MARKERS = ROOT / "scenes/board/logic/markers/interaction_markers.gd"
+ABILITY_MARKERS = ROOT / "scenes/board/logic/markers/ability_markers.gd"
 MAP_TILE = ROOT / "scenes/map/tile.gd"
 AI_PATHFINDER = ROOT / "scenes/board/logic/ai/pathfinder.gd"
 AI_COLLECTOR = ROOT / "scenes/board/logic/ai/collector.gd"
@@ -830,6 +831,593 @@ func reset_for_pool():
     )
 
 
+
+def patch_model_tile_list_queries() -> None:
+    replace_once(
+        MAP_MODEL,
+        '''func get_dict():
+\tvar tiles_dict = {}
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].has_content():
+\t\t\ttiles_dict[i] = self.tiles[i].get_dict()
+''',
+        '''func get_dict():
+\tvar tiles_dict = {}
+\tfor tile in self.tile_list:
+\t\tif tile.has_content():
+\t\t\ttiles_dict[tile.cache_key] = tile.get_dict()
+''',
+        "Map model serialization tile-list iteration",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func get_player_units(side):
+\tvar units = []
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].has_friendly_unit(side):
+\t\t\tunits.append(self.tiles[i].unit.tile)
+
+\treturn units
+''',
+        '''func get_player_units(side):
+\tvar units = []
+\tfor tile in self.tile_list:
+\t\tif tile.has_friendly_unit(side):
+\t\t\tunits.append(tile.unit.tile)
+
+\treturn units
+''',
+        "Map model player-unit tile-list iteration",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func get_all_units_tiles():
+\tvar units_tiles = []
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].unit.is_present():
+\t\t\tunits_tiles.append(self.tiles[i])
+
+\treturn units_tiles
+''',
+        '''func get_all_units_tiles():
+\tvar units_tiles = []
+\tfor tile in self.tile_list:
+\t\tif tile.unit.is_present():
+\t\t\tunits_tiles.append(tile)
+
+\treturn units_tiles
+''',
+        "Map model all-unit tile-list iteration",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func get_player_buildings(side):
+\tvar buildings = []
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].has_friendly_building(side):
+\t\t\tbuildings.append(self.tiles[i].building.tile)
+
+\treturn buildings
+''',
+        '''func get_player_buildings(side):
+\tvar buildings = []
+\tfor tile in self.tile_list:
+\t\tif tile.has_friendly_building(side):
+\t\t\tbuildings.append(tile.building.tile)
+
+\treturn buildings
+''',
+        "Map model player-building tile-list iteration",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func get_player_units_tiles(side):
+\tvar units = []
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].has_friendly_unit(side):
+\t\t\tunits.append(self.tiles[i])
+
+\treturn units
+''',
+        '''func get_player_units_tiles(side):
+\tvar units = []
+\tfor tile in self.tile_list:
+\t\tif tile.has_friendly_unit(side):
+\t\t\tunits.append(tile)
+
+\treturn units
+''',
+        "Map model player-unit-tile tile-list iteration",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func get_player_buildings_tiles(side):
+\tvar buildings = []
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].has_friendly_building(side):
+\t\t\tbuildings.append(self.tiles[i])
+
+\treturn buildings
+''',
+        '''func get_player_buildings_tiles(side):
+\tvar buildings = []
+\tfor tile in self.tile_list:
+\t\tif tile.has_friendly_building(side):
+\t\t\tbuildings.append(tile)
+
+\treturn buildings
+''',
+        "Map model player-building-tile tile-list iteration",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func get_enemy_units_tiles(side, team=null):
+\tvar units = []
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].has_enemy_unit(side, team):
+\t\t\tunits.append(self.tiles[i])
+
+\treturn units
+''',
+        '''func get_enemy_units_tiles(side, team=null):
+\tvar units = []
+\tfor tile in self.tile_list:
+\t\tif tile.has_enemy_unit(side, team):
+\t\t\tunits.append(tile)
+
+\treturn units
+''',
+        "Map model enemy-unit tile-list iteration",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func get_enemy_buildings_tiles(side, team=null):
+\tvar buildings = []
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].has_enemy_building(side, team):
+\t\t\tbuildings.append(self.tiles[i])
+
+\treturn buildings
+''',
+        '''func get_enemy_buildings_tiles(side, team=null):
+\tvar buildings = []
+\tfor tile in self.tile_list:
+\t\tif tile.has_enemy_building(side, team):
+\t\t\tbuildings.append(tile)
+
+\treturn buildings
+''',
+        "Map model enemy-building tile-list iteration",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func get_player_bunker_position(side):
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].has_friendly_hq(side):
+\t\t\treturn self.tiles[i].position
+''',
+        '''func get_player_bunker_position(side):
+\tfor tile in self.tile_list:
+\t\tif tile.has_friendly_hq(side):
+\t\t\treturn tile.position
+''',
+        "Map model bunker-position tile-list iteration",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func get_player_bunkers(side):
+\tvar bunkers = []
+
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].has_friendly_hq(side):
+\t\t\tbunkers.append(self.tiles[i])
+
+\treturn bunkers
+''',
+        '''func get_player_bunkers(side):
+\tvar bunkers = []
+
+\tfor tile in self.tile_list:
+\t\tif tile.has_friendly_hq(side):
+\t\t\tbunkers.append(tile)
+
+\treturn bunkers
+''',
+        "Map model bunker tile-list iteration",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func get_player_hero_position(side):
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].has_friendly_hero(side):
+\t\t\treturn self.tiles[i].position
+''',
+        '''func get_player_hero_position(side):
+\tfor tile in self.tile_list:
+\t\tif tile.has_friendly_hero(side):
+\t\t\treturn tile.position
+''',
+        "Map model hero-position tile-list iteration",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func get_player_heroes(side):
+\tvar heroes = []
+
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].has_friendly_hero(side):
+\t\t\theroes.append(self.tiles[i].unit.tile)
+
+\treturn heroes
+''',
+        '''func get_player_heroes(side):
+\tvar heroes = []
+
+\tfor tile in self.tile_list:
+\t\tif tile.has_friendly_hero(side):
+\t\t\theroes.append(tile.unit.tile)
+
+\treturn heroes
+''',
+        "Map model hero tile-list iteration",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func get_unit_position(unit):
+\tif unit == null:
+\t\treturn null
+
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].unit.tile == unit:
+\t\t\treturn [self.tiles[i].position.x, self.tiles[i].position.y]
+''',
+        '''func get_unit_position(unit):
+\tif unit == null:
+\t\treturn null
+
+\tfor tile in self.tile_list:
+\t\tif tile.unit.tile == unit:
+\t\t\treturn [tile.position.x, tile.position.y]
+''',
+        "Map model unit-position tile-list iteration",
+    )
+
+    replace_once(
+        MAP_MODEL,
+        '''func wipe_all_units():
+\tvar units = []
+\tfor i in self.tiles.keys():
+\t\tif self.tiles[i].unit.is_present():
+\t\t\tself.tiles[i].unit.clear()
+
+\treturn units
+''',
+        '''func wipe_all_units():
+\tvar units = []
+\tfor tile in self.tile_list:
+\t\tif tile.unit.is_present():
+\t\t\ttile.unit.clear()
+
+\treturn units
+''',
+        "Map model wipe-unit tile-list iteration",
+    )
+
+
+def patch_direction_lookup() -> None:
+    replace_once(
+        MAP_TILE,
+        '''func get_direction_to_neighbour(tile):
+\tfor direction in self.neighbours.keys():
+\t\tif self.neighbours[direction] == tile:
+\t\t\treturn direction
+\treturn null
+''',
+        '''func get_direction_to_neighbour(tile):
+\tif self.neighbours.get(self.EAST) == tile:
+\t\treturn self.EAST
+\tif self.neighbours.get(self.WEST) == tile:
+\t\treturn self.WEST
+\tif self.neighbours.get(self.NORTH) == tile:
+\t\treturn self.NORTH
+\tif self.neighbours.get(self.SOUTH) == tile:
+\t\treturn self.SOUTH
+\treturn null
+''',
+        "Map tile allocation-free neighbour direction lookup",
+    )
+
+
+def patch_ability_marker_pool() -> None:
+    replace_once(
+        ABILITY_MARKERS,
+        '''var created_markers = {}
+var extra_markers = []
+var tiles_in_range = {}
+''',
+        '''var created_markers = {}
+var marker_pool = []
+var extra_markers = []
+var range_marker_pool = []
+var tiles_in_range = {}
+''',
+        "Ability marker pool state",
+    )
+
+    replace_once(
+        ABILITY_MARKERS,
+        '''func destroy_markers():
+\tvar marker
+\tfor key in self.created_markers.keys():
+\t\tmarker = self.created_markers[key]
+\t\tmarker.hide()
+\t\tmarker.queue_free()
+\tself.created_markers = {}
+\tfor extra_marker in self.extra_markers:
+\t\textra_marker.hide()
+\t\textra_marker.queue_free()
+\tself.extra_markers = []
+''',
+        '''func destroy_markers():
+\tvar marker
+\tfor key in self.created_markers:
+\t\tmarker = self.created_markers[key]
+\t\tmarker.hide()
+\t\tself.marker_pool.append(marker)
+\tself.created_markers.clear()
+
+\tfor extra_marker in self.extra_markers:
+\t\textra_marker.hide()
+\t\tself.range_marker_pool.append(extra_marker)
+\tself.extra_markers.clear()
+''',
+        "Ability marker pooled reset",
+    )
+
+    replace_once(
+        ABILITY_MARKERS,
+        '''func show_production_markers_for_tile(tile):
+\tvar neighbour
+\tfor direction in tile.neighbours.keys():
+\t\tneighbour = tile.neighbours[direction]
+\t\tif neighbour.can_acommodate_unit():
+\t\t\tself.place_marker(neighbour.position)
+''',
+        '''func show_production_markers_for_tile(tile):
+\tfor neighbour in tile.neighbour_tiles:
+\t\tif neighbour.can_acommodate_unit():
+\t\t\tself.place_marker(neighbour.position)
+''',
+        "Ability production neighbour iteration",
+    )
+
+    replace_once(
+        ABILITY_MARKERS,
+        '''\tfor tile in self.tiles_in_range.values():
+\t\tif ability.is_tile_applicable(tile, source_tile):
+\t\t\tself.place_marker(tile.position, ability.marker_colour)
+''',
+        '''\tfor tile_key in self.tiles_in_range:
+\t\tvar range_tile = self.tiles_in_range[tile_key]
+\t\tif ability.is_tile_applicable(range_tile, source_tile):
+\t\t\tself.place_marker(range_tile.position, ability.marker_colour)
+''',
+        "Ability range allocation-free iteration",
+    )
+
+    replace_once(
+        ABILITY_MARKERS,
+        '''\tfor neighbour in tile.neighbours.values():
+\t\tkey = self._get_key(neighbour)
+''',
+        '''\tfor neighbour in tile.neighbour_tiles:
+\t\tkey = self._get_key(neighbour)
+''',
+        "Ability range neighbour iteration",
+    )
+
+    replace_once(
+        ABILITY_MARKERS,
+        '''func place_marker(marker_position, colour="green"):
+\tvar new_marker = self.marker_template.instantiate()
+\tself.add_child(new_marker)
+\tvar placement = self.map_obj.map_to_local(marker_position)
+\tnew_marker.set_position(placement)
+
+\tself.created_markers[str(marker_position.x) + "_" + str(marker_position.y)] = new_marker
+\tnew_marker.set_material(self.colour_materials[colour])
+''',
+        '''func place_marker(marker_position, colour="green"):
+\tvar new_marker
+\tif self.marker_pool.is_empty():
+\t\tnew_marker = self.marker_template.instantiate()
+\t\tself.add_child(new_marker)
+\telse:
+\t\tnew_marker = self.marker_pool.pop_back()
+\t\tnew_marker.show()
+
+\tvar placement = self.map_obj.map_to_local(marker_position)
+\tnew_marker.set_position(placement)
+
+\tself.created_markers[str(marker_position.x) + "_" + str(marker_position.y)] = new_marker
+\tnew_marker.set_material(self.colour_materials[colour])
+''',
+        "Ability marker pooled allocation",
+    )
+
+    replace_once(
+        ABILITY_MARKERS,
+        '''func _get_key(tile):
+\treturn str(tile.position.x) + "_" + str(tile.position.y)
+''',
+        '''func _get_key(tile):
+\treturn tile.cache_key
+''',
+        "Ability marker cached tile keys",
+    )
+
+    replace_once(
+        ABILITY_MARKERS,
+        '''func _place_extra_marker(marker_position, marker_rotation):
+\tvar new_marker = self.range_template.instantiate()
+\tself.add_child(new_marker)
+\tvar placement = self.map_obj.map_to_local(marker_position)
+\tnew_marker.set_position(placement)
+\tnew_marker.set_rotation(Vector3(0, deg_to_rad(marker_rotation), 0))
+
+\tself.extra_markers.append(new_marker)
+''',
+        '''func _place_extra_marker(marker_position, marker_rotation):
+\tvar new_marker
+\tif self.range_marker_pool.is_empty():
+\t\tnew_marker = self.range_template.instantiate()
+\t\tself.add_child(new_marker)
+\telse:
+\t\tnew_marker = self.range_marker_pool.pop_back()
+\t\tnew_marker.show()
+
+\tvar placement = self.map_obj.map_to_local(marker_position)
+\tnew_marker.set_position(placement)
+\tnew_marker.set_rotation(Vector3(0, deg_to_rad(marker_rotation), 0))
+
+\tself.extra_markers.append(new_marker)
+''',
+        "Ability range-marker pooled allocation",
+    )
+
+
+def patch_marker_collection_reuse() -> None:
+    replace_once(
+        MOVEMENT_MARKERS,
+        '''func reset():
+\tself.explored_tiles = {}
+\tself.tile_path = {}
+\tself.destroy_markers()
+''',
+        '''func reset():
+\tself.explored_tiles.clear()
+\tself.tile_path.clear()
+\tself.destroy_markers()
+''',
+        "Movement marker dictionary reuse",
+    )
+
+    replace_once(
+        MOVEMENT_MARKERS,
+        '''func destroy_markers():
+\tvar marker
+\tfor key in self.created_markers.keys():
+\t\tmarker = self.created_markers[key]
+\t\tmarker.hide()
+\t\tself.marker_pool.append(marker)
+\tself.created_markers = {}
+''',
+        '''func destroy_markers():
+\tvar marker
+\tfor key in self.created_markers:
+\t\tmarker = self.created_markers[key]
+\t\tmarker.hide()
+\t\tself.marker_pool.append(marker)
+\tself.created_markers.clear()
+''',
+        "Movement marker collection reuse",
+    )
+
+    replace_once(
+        MOVEMENT_MARKERS,
+        '''\tfor key in tile.neighbours.keys():
+\t\tneighbour = tile.get_neighbour(key)
+
+\t\tneighbour_cost = self.get_tile_cost(neighbour)
+''',
+        '''\tfor neighbour_tile in tile.neighbour_tiles:
+\t\tneighbour = neighbour_tile
+
+\t\tneighbour_cost = self.get_tile_cost(neighbour)
+''',
+        "Movement marker allocation-free neighbour iteration",
+    )
+
+    replace_once(
+        PATH_MARKERS,
+        '''func reset():
+\tself.last_path = []
+\tself.destroy_markers()
+''',
+        '''func reset():
+\tself.last_path.clear()
+\tself.destroy_markers()
+''',
+        "Path marker path-buffer reuse",
+    )
+
+    replace_once(
+        PATH_MARKERS,
+        '''func destroy_markers():
+\tvar marker
+\tfor key in self.created_markers.keys():
+\t\tmarker = self.created_markers[key]
+\t\tmarker.hide()
+\t\tself.marker_pool.append(marker)
+\tself.created_markers = {}
+''',
+        '''func destroy_markers():
+\tvar marker
+\tfor key in self.created_markers:
+\t\tmarker = self.created_markers[key]
+\t\tmarker.hide()
+\t\tself.marker_pool.append(marker)
+\tself.created_markers.clear()
+''',
+        "Path marker collection reuse",
+    )
+
+    replace_once(
+        INTERACTION_MARKERS,
+        '''func destroy_markers():
+\tvar marker
+\tfor key in self.created_markers.keys():
+\t\tmarker = self.created_markers[key]
+\t\tmarker.hide()
+\t\tvar pool_type = marker.get_meta("tof_pool_type", "")
+\t\tif pool_type == "attack":
+\t\t\tself.attack_marker_pool.append(marker)
+\t\telif pool_type == "capture":
+\t\t\tself.capture_marker_pool.append(marker)
+\t\telse:
+\t\t\tmarker.queue_free()
+\tself.created_markers = {}
+''',
+        '''func destroy_markers():
+\tvar marker
+\tfor key in self.created_markers:
+\t\tmarker = self.created_markers[key]
+\t\tmarker.hide()
+\t\tvar pool_type = marker.get_meta("tof_pool_type", "")
+\t\tif pool_type == "attack":
+\t\t\tself.attack_marker_pool.append(marker)
+\t\telif pool_type == "capture":
+\t\t\tself.capture_marker_pool.append(marker)
+\t\telse:
+\t\t\tmarker.queue_free()
+\tself.created_markers.clear()
+''',
+        "Interaction marker collection reuse",
+    )
+
+
 def patch_movement_marker_pool() -> None:
     replace_once(
         MOVEMENT_MARKERS,
@@ -1155,6 +1743,8 @@ def main() -> None:
     patch_cached_tile_keys()
     patch_ai_entity_snapshot()
     patch_neighbour_iteration()
+    patch_model_tile_list_queries()
+    patch_direction_lookup()
     patch_hot_dictionary_reuse()
     patch_ai_path_cache()
     patch_unit_hot_stat_reads()
@@ -1164,6 +1754,8 @@ def main() -> None:
     patch_movement_marker_pool()
     patch_path_marker_pool_and_cache()
     patch_interaction_marker_pool()
+    patch_ability_marker_pool()
+    patch_marker_collection_reuse()
 
 
 if __name__ == "__main__":
